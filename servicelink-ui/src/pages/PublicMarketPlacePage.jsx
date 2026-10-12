@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, CalendarDays,
@@ -18,6 +18,14 @@ const serviceRecords = [
   { id: "SV-138", title: "Event Photography Package", providerId: "PR-105", provider: "NorthLens Studio", category: "Photography", location: "Anuradhapura", rating: 4.6, reviews: 24, price: 25000, priceLabel: "From LKR 25,000", available: true, summary: "Event photography with edited digital image delivery.", tone: "from-fuchsia-500 to-pink-600" },
 ];
 
+const providerRecords = [
+  { id: "PR-101", name: "Kalana HomeTech", title: "Electrical and Home Maintenance Technician", location: "Anuradhapura", rating: 4.8, reviews: 42, experience: 4, categories: ["Electrical", "Home Maintenance"], services: 2, summary: "Household electrical inspection, installation and maintenance support.", initials: "KH", tone: "from-blue-600 to-cyan-500" },
+  { id: "PR-102", name: "AquaPro Plumbing", title: "Residential Plumbing Service", location: "Mihintale", rating: 4.7, reviews: 31, experience: 6, categories: ["Plumbing"], services: 1, summary: "Residential plumbing inspection, fitting replacement and repair support.", initials: "AP", tone: "from-cyan-500 to-blue-600" },
+  { id: "PR-103", name: "North Central TechCare", title: "Computer and Mobile Device Support", location: "Anuradhapura", rating: 4.8, reviews: 64, experience: 5, categories: ["Computer Repair"], services: 1, summary: "Diagnostics and practical support for computers and mobile devices.", initials: "NT", tone: "from-violet-600 to-indigo-600" },
+  { id: "PR-104", name: "SkillPath Tutors", title: "Individual and Small-group Tutoring", location: "Online and local", rating: 4.7, reviews: 52, experience: 7, categories: ["Tutoring"], services: 1, summary: "Structured tutoring with clear study plans and individual learning support.", initials: "ST", tone: "from-emerald-500 to-teal-600" },
+  { id: "PR-105", name: "NorthLens Studio", title: "Event and Portrait Photography", location: "Anuradhapura", rating: 4.6, reviews: 24, experience: 4, categories: ["Photography"], services: 1, summary: "Event and portrait photography with edited digital delivery.", initials: "NS", tone: "from-fuchsia-500 to-pink-600" },
+];
+
 const wantedAdRecords = [
   { id: "WA-208", title: "Repair bedroom air conditioner", category: "Home Maintenance", area: "Anuradhapura", budget: "LKR 8,000 - 12,000", deadline: "10 Sep 2026", offers: 4, status: "active", detail: "The unit runs but does not cool properly. Inspection, cleaning and repair are required." },
   { id: "WA-211", title: "Install outdoor security lights", category: "Electrical", area: "Mihintale", budget: "Negotiable", deadline: "12 Sep 2026", offers: 2, status: "active", detail: "Two weather-resistant outdoor lights should be installed near the entrance and side path." },
@@ -27,50 +35,6 @@ const wantedAdRecords = [
 
 const categories = ["All categories", "Electrical", "Plumbing", "Computer Repair", "Home Maintenance", "Tutoring", "Photography"];
 
-const PUBLIC_API_BASE = "http://127.0.0.1:8000/api/public";
-const providerTones = [
-  "from-blue-600 to-cyan-500",
-  "from-violet-600 to-indigo-600",
-  "from-emerald-500 to-teal-600",
-  "from-fuchsia-500 to-pink-600",
-];
-async function publicProviderRequest(path) {
-  const response = await fetch(`${PUBLIC_API_BASE}${path}`, {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  const contentType = response.headers.get("content-type") || "";
-  const result = contentType.includes("application/json")
-    ? await response.json()
-    : null;
-  if (!response.ok) {
-    throw new Error(result?.message || "Approved providers could not be loaded.");
-  }
-  return result;
-}
-function mapPublicProvider(item, index = 0) {
-  const name = item.business_name || "Service Provider";
-  const categories = String(item.categories_text || "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return {
-    id: item.public_id,
-    name,
-    title: item.professional_title || "Professional service provider",
-    location: item.primary_district || "Not provided",
-    coverage: item.coverage_area || "Not provided",
-    rating: Number(item.average_rating || 0).toFixed(2),
-    reviews: Number(item.review_count || 0),
-    experience: Number(item.years_experience || 0),
-    categories,
-    services: Number(item.active_services_count || 0),
-    summary: item.professional_summary || "No professional summary has been provided.",
-    initials: name.split(" ").filter(Boolean).map((word) => word[0]).join("").slice(0, 2).toUpperCase() || "SP",
-    tone: providerTones[index % providerTones.length],
-  };
-}
 function GlassPanel({ children, className = "" }) {
   return <div className={`rounded-[1.7rem] border border-white/90 bg-white/72 shadow-[0_18px_55px_rgba(39,75,120,0.09)] backdrop-blur-2xl ${className}`}>{children}</div>;
 }
@@ -91,55 +55,9 @@ export default function PublicMarketplacePage({ screen = "services" }) {
   const [availableOnly, setAvailableOnly] = useState(false);
   const [saved, setSaved] = useState([]);
   const [notice, setNotice] = useState("");
-  const [providerRecords, setProviderRecords] = useState([]);
-  const [providersLoading, setProvidersLoading] = useState(true);
-  const [providersError, setProvidersError] = useState("");
-  const [activeProvider, setActiveProvider] = useState(null);
-  const [providerDetailsLoading, setProviderDetailsLoading] = useState(false);
 
   const activeService = serviceRecords.find((item) => item.id === params.id) || serviceRecords[0];
-  useEffect(() => {
-    let active = true;
-    setProvidersLoading(true);
-    setProvidersError("");
-    publicProviderRequest("/providers")
-      .then((result) => {
-        if (active) setProviderRecords((result.data?.items || []).map(mapPublicProvider));
-      })
-      .catch((error) => active && setProvidersError(error.message))
-      .finally(() => active && setProvidersLoading(false));
-    return () => { active = false; };
-  }, []);
-  useEffect(() => {
-    if (screen !== "provider-details" || !params.id) return;
-    let active = true;
-    setProviderDetailsLoading(true);
-    setProvidersError("");
-    publicProviderRequest(`/providers/${params.id}`)
-      .then((result) => {
-        if (!active) return;
-        const provider = mapPublicProvider(result.data?.provider || {});
-        provider.serviceItems = (result.data?.services || []).map((service) => ({
-          id: service.public_id,
-          title: service.title,
-          category: service.category_name || "Service",
-          summary: service.description || "No service description provided.",
-          price: Number(service.price_min || 0),
-          priceLabel: service.price_display || `LKR ${Number(service.price_min || 0).toLocaleString("en-LK")}`,
-          providerId: provider.id,
-          provider: provider.name,
-          location: provider.location,
-          rating: Number(provider.rating),
-          reviews: provider.reviews,
-          available: true,
-          tone: provider.tone,
-        }));
-        setActiveProvider(provider);
-      })
-      .catch((error) => active && setProvidersError(error.message))
-      .finally(() => active && setProviderDetailsLoading(false));
-    return () => { active = false; };
-  }, [screen, params.id]);
+  const activeProvider = providerRecords.find((item) => item.id === params.id) || providerRecords[0];
   const activeAd = wantedAdRecords.find((item) => item.id === params.id) || wantedAdRecords[0];
 
   const filteredServices = useMemo(() => {
@@ -152,36 +70,7 @@ export default function PublicMarketplacePage({ screen = "services" }) {
     return items;
   }, [query, category, location, sort, availableOnly]);
 
-  const filteredProviders = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return providerRecords.filter((provider) => {
-      const searchableText = [
-        provider.name,
-        provider.title,
-        provider.location,
-        provider.coverage,
-        ...provider.categories,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      const matchesQuery =
-        !normalizedQuery ||
-        searchableText.includes(normalizedQuery);
-
-      const matchesCategory =
-        category === "All categories" ||
-        provider.categories.includes(category);
-
-      const matchesLocation =
-        location === "All locations" ||
-        provider.location === location;
-
-      return matchesQuery && matchesCategory && matchesLocation;
-    });
-  }, [providerRecords, query, category, location]);
+  const filteredProviders = useMemo(() => providerRecords.filter((item) => `${item.name} ${item.title} ${item.categories.join(" ")}`.toLowerCase().includes(query.toLowerCase()) && (category === "All categories" || item.categories.includes(category)) && (location === "All locations" || item.location.includes(location))), [query, category, location]);
   const filteredAds = useMemo(() => wantedAdRecords.filter((item) => `${item.title} ${item.category}`.toLowerCase().includes(query.toLowerCase()) && (category === "All categories" || item.category === category) && (location === "All locations" || item.area.includes(location))), [query, category, location]);
 
   const go = (path) => { setMobileOpen(false); navigate(path); window.scrollTo({ top: 0, behavior: "smooth" }); };
@@ -280,16 +169,16 @@ export default function PublicMarketplacePage({ screen = "services" }) {
       {screen === "service-details" && <ServiceDetails service={activeService} saved={saved.includes(activeService.id)} toggleSaved={toggleSaved} go={go} showNotice={showNotice} />}
       {screen === "categories" && <CategoriesPage go={go} />}
       {screen === "category-services" && <ServicesPage items={serviceRecords.filter((item) => item.category.toLowerCase().replaceAll(" ", "-") === params.slug)} query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} sort={sort} setSort={setSort} availableOnly={availableOnly} setAvailableOnly={setAvailableOnly} saved={saved} toggleSaved={toggleSaved} go={go} heading={`${params.slug?.replaceAll("-", " ")} services`} />}
-      {screen === "providers" && <ProvidersPage items={filteredProviders} loading={providersLoading} error={providersError} query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} saved={saved} toggleSaved={toggleSaved} go={go} />}
-      {screen === "provider-details" && <ProviderDetails provider={activeProvider} loading={providerDetailsLoading} error={providersError} saved={activeProvider ? saved.includes(activeProvider.id) : false} toggleSaved={toggleSaved} go={go} />}
+      {screen === "providers" && <ProvidersPage items={filteredProviders} query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} saved={saved} toggleSaved={toggleSaved} go={go} />}
+      {screen === "provider-details" && <ProviderDetails provider={activeProvider} saved={saved.includes(activeProvider.id)} toggleSaved={toggleSaved} go={go} />}
       {screen === "wanted-ads" && <WantedAdsPage items={filteredAds} query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} go={go} />}
       {screen === "wanted-ad-details" && <WantedAdDetails ad={activeAd} go={go} />}
     </main>
   </div>;
 }
 
-function SearchFilters({ query, setQuery, category, setCategory, location, setLocation, sort, setSort, availableOnly, setAvailableOnly, showSort = true, categoryOptions = categories, locationOptions = ["All locations","Anuradhapura","Mihintale","Online"] }) {
-  return <GlassPanel className="mb-7 p-4"><div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_auto]"><label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4"><Search size={18} className="text-blue-600" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by service, provider or category" className="w-full bg-transparent py-4 text-sm outline-none" /></label><SelectControl value={category} setValue={setCategory} options={categoryOptions} /><SelectControl value={location} setValue={setLocation} options={locationOptions} />{showSort && <SelectControl value={sort} setValue={setSort} options={["Recommended","Rating","Price low to high"]} />}</div>{availableOnly !== undefined && <label className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-slate-600"><input type="checkbox" checked={availableOnly} onChange={(e) => setAvailableOnly(e.target.checked)} className="accent-blue-600" />Available slots only</label>}</GlassPanel>;
+function SearchFilters({ query, setQuery, category, setCategory, location, setLocation, sort, setSort, availableOnly, setAvailableOnly, showSort = true }) {
+  return <GlassPanel className="mb-7 p-4"><div className="grid gap-3 lg:grid-cols-[1.4fr_1fr_1fr_auto]"><label className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4"><Search size={18} className="text-blue-600" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by service, provider or category" className="w-full bg-transparent py-4 text-sm outline-none" /></label><SelectControl value={category} setValue={setCategory} options={categories} /><SelectControl value={location} setValue={setLocation} options={["All locations","Anuradhapura","Mihintale","Online"]} />{showSort && <SelectControl value={sort} setValue={setSort} options={["Recommended","Rating","Price low to high"]} />}</div>{availableOnly !== undefined && <label className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-slate-600"><input type="checkbox" checked={availableOnly} onChange={(e) => setAvailableOnly(e.target.checked)} className="accent-blue-600" />Available slots only</label>}</GlassPanel>;
 }
 function SelectControl({ value, setValue, options }) { return <label className="flex items-center rounded-2xl bg-slate-50 px-4"><select value={value} onChange={(e) => setValue(e.target.value)} className="w-full appearance-none bg-transparent py-4 text-sm font-extrabold outline-none">{options.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown size={16} /></label>; }
 
@@ -303,19 +192,9 @@ function CheckCircle({ item }) { return <><span className="mt-0.5 grid h-5 w-5 s
 
 function CategoriesPage({ go }) { return <div><PageHead eyebrow="EXPLORE CATEGORIES" title="Browse by service category" text="Choose a category to view active services published by approved providers." /><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{categories.slice(1).map((item, index) => <button key={item} onClick={() => go(`/categories/${item.toLowerCase().replaceAll(" ", "-")}`)} className="group rounded-[1.7rem] border border-white/90 bg-white/75 p-6 text-left shadow-xl backdrop-blur-2xl"><span className={`grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br ${["from-amber-400 to-orange-500","from-cyan-400 to-blue-500","from-violet-500 to-indigo-600","from-sky-500 to-cyan-500","from-emerald-500 to-teal-600","from-fuchsia-500 to-pink-600"][index]} text-white`}><Wrench size={23} /></span><h2 className="mt-5 text-xl font-black">{item}</h2><p className="mt-2 text-sm text-slate-500">View approved providers and active services in this category.</p><span className="mt-5 flex items-center gap-2 text-sm font-extrabold text-blue-700">Browse category <ArrowRight size={16} /></span></button>)}</div></div>; }
 
-function ProvidersPage({ items, loading, error, query, setQuery, category, setCategory, location, setLocation, saved, toggleSaved, go }) {
-  const categoryOptions = ["All categories", ...new Set(items.flatMap((provider) => provider.categories))];
-  const locationOptions = ["All locations", ...new Set(items.map((provider) => provider.location).filter(Boolean))];
-  if (loading) return <GlassPanel className="p-10 text-center"><div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"/><h2 className="mt-5 text-xl font-black">Loading approved providers</h2></GlassPanel>;
-  if (error) return <EmptyState title="Providers unavailable" text={error} primary="Try again" onPrimary={() => window.location.reload()} secondary="Return home" onSecondary={() => go("/")} />;
-  return <div><PageHead eyebrow="APPROVED PROVIDERS" title="Find trusted local providers" text="Compare real approved provider profiles, active services and verified booking ratings."/><SearchFilters query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} showSort={false} categoryOptions={categoryOptions} locationOptions={locationOptions}/>{items.length === 0 ? <EmptyState title="No approved providers found" text="No active approved providers match the selected filters." primary="Clear filters" onPrimary={() => {setQuery("");setCategory("All categories");setLocation("All locations");}} secondary="Create provider account" onSecondary={() => go("/register/provider")}/> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{items.map((provider) => <GlassPanel key={provider.id} className="p-5"><div className="flex items-start justify-between"><span className={`grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${provider.tone} text-lg font-black text-white`}>{provider.initials}</span><button onClick={() => toggleSaved(provider.id)} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50"><Heart size={18} className={saved.includes(provider.id) ? "fill-rose-500 text-rose-500" : "text-slate-400"}/></button></div><div className="mt-5 flex items-center gap-2"><h2 className="text-xl font-black">{provider.name}</h2><BadgeCheck size={19} className="fill-blue-600 text-white"/></div><p className="mt-2 text-sm leading-6 text-slate-500">{provider.title}</p><div className="mt-4 flex items-center justify-between"><Rating value={provider.rating} reviews={provider.reviews}/><span className="text-xs font-bold text-slate-500">{provider.experience} years</span></div><p className="mt-4 text-sm text-slate-600">{provider.categories.length ? provider.categories.join(" · ") : "Professional services"}</p><p className="mt-2 text-xs font-bold text-blue-600">{provider.services} active service{provider.services === 1 ? "" : "s"} · {provider.location}</p><button onClick={() => go(`/providers/${provider.id}`)} className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">View provider profile</button></GlassPanel>)}</div>}</div>;
-}
-function ProviderDetails({ provider, loading, error, saved, toggleSaved, go }) {
-  if (loading) return <GlassPanel className="p-10 text-center"><div className="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"/><h2 className="mt-5 text-xl font-black">Loading provider profile</h2></GlassPanel>;
-  if (error || !provider) return <EmptyState title="Provider unavailable" text={error || "The approved provider could not be found."} primary="Back to providers" onPrimary={() => go("/providers")} secondary="Return home" onSecondary={() => go("/")} />;
-  const items = provider.serviceItems || [];
-  return <div><Back onClick={() => go("/providers")} text="Back to providers"/><GlassPanel className="p-6 sm:p-8"><div className="flex flex-col gap-6 sm:flex-row sm:items-center"><span className={`grid h-24 w-24 place-items-center rounded-[2rem] bg-gradient-to-br ${provider.tone} text-2xl font-black text-white`}>{provider.initials}</span><div className="flex-1"><div className="flex items-center gap-2"><h1 className="text-3xl font-black">{provider.name}</h1><BadgeCheck size={22} className="fill-blue-600 text-white"/></div><p className="mt-2 text-slate-500">{provider.title}</p><div className="mt-3 flex flex-wrap gap-4"><Rating value={provider.rating} reviews={provider.reviews}/><span className="text-sm font-bold text-slate-500">{provider.experience} years experience</span><span className="text-sm font-bold text-slate-500">{provider.location}</span></div></div><button onClick={() => toggleSaved(provider.id)} className="rounded-2xl bg-blue-50 px-5 py-3 text-sm font-extrabold text-blue-700">{saved ? "Provider saved" : "Save provider"}</button></div><div className="mt-7 grid gap-5 xl:grid-cols-[1fr_0.7fr]"><div className="rounded-2xl bg-slate-50 p-5"><h2 className="font-black">Professional summary</h2><p className="mt-2 leading-7 text-slate-600">{provider.summary}</p><p className="mt-3 text-sm font-semibold text-slate-500">Coverage: {provider.coverage}</p></div><div className="rounded-2xl bg-emerald-50 p-5"><ShieldCheck size={21} className="text-emerald-700"/><h2 className="mt-3 font-black text-emerald-900">Platform-approved provider</h2><p className="mt-2 text-sm leading-6 text-emerald-800">Profile and submitted evidence were reviewed by ServiceLink. This is not external professional accreditation.</p></div></div></GlassPanel><h2 className="mb-5 mt-8 text-2xl font-black">Active services</h2>{items.length ? <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{items.map((service) => <ServiceCard key={service.id} service={service} saved={false} toggleSaved={() => {}} go={go}/>)}</div> : <EmptyState title="No active services" text="This approved provider has not published active services yet." primary="Back to providers" onPrimary={() => go("/providers")} secondary="Browse services" onSecondary={() => go("/services")}/>}</div>;
-}
+function ProvidersPage({ items, query, setQuery, category, setCategory, location, setLocation, saved, toggleSaved, go }) { return <div><PageHead eyebrow="APPROVED PROVIDERS" title="Find trusted local providers" text="Compare public professional profiles, active services and verified booking ratings." /><SearchFilters query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} showSort={false} /><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{items.map((provider) => <GlassPanel key={provider.id} className="p-5"><div className="flex items-start justify-between"><span className={`grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${provider.tone} text-lg font-black text-white`}>{provider.initials}</span><button onClick={() => toggleSaved(provider.id)} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-50"><Heart size={18} className={saved.includes(provider.id) ? "fill-rose-500 text-rose-500" : "text-slate-400"} /></button></div><div className="mt-5 flex items-center gap-2"><h2 className="text-xl font-black">{provider.name}</h2><BadgeCheck size={19} className="fill-blue-600 text-white" /></div><p className="mt-2 text-sm leading-6 text-slate-500">{provider.title}</p><div className="mt-4 flex items-center justify-between"><Rating value={provider.rating} reviews={provider.reviews} /><span className="text-xs font-bold text-slate-500">{provider.experience} years</span></div><p className="mt-4 text-sm text-slate-600">{provider.categories.join(" · ")}</p><button onClick={() => go(`/providers/${provider.id}`)} className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">View provider profile</button></GlassPanel>)}</div></div>; }
+function ProviderDetails({ provider, saved, toggleSaved, go }) { const items = serviceRecords.filter((item) => item.providerId === provider.id); return <div><Back onClick={() => go("/providers")} text="Back to providers" /><GlassPanel className="p-6 sm:p-8"><div className="flex flex-col gap-6 sm:flex-row sm:items-center"><span className={`grid h-24 w-24 place-items-center rounded-[2rem] bg-gradient-to-br ${provider.tone} text-2xl font-black text-white`}>{provider.initials}</span><div className="flex-1"><div className="flex items-center gap-2"><h1 className="text-3xl font-black">{provider.name}</h1><BadgeCheck size={22} className="fill-blue-600 text-white" /></div><p className="mt-2 text-slate-500">{provider.title}</p><div className="mt-3 flex flex-wrap gap-4"><Rating value={provider.rating} reviews={provider.reviews} /><span className="text-sm font-bold text-slate-500">{provider.experience} years experience</span><span className="text-sm font-bold text-slate-500">{provider.location}</span></div></div><button onClick={() => toggleSaved(provider.id)} className="rounded-2xl bg-blue-50 px-5 py-3 text-sm font-extrabold text-blue-700">{saved ? "Provider saved" : "Save provider"}</button></div><div className="mt-7 grid gap-5 xl:grid-cols-[1fr_0.7fr]"><div className="rounded-2xl bg-slate-50 p-5"><h2 className="font-black">Professional summary</h2><p className="mt-2 leading-7 text-slate-600">{provider.summary}</p></div><div className="rounded-2xl bg-emerald-50 p-5"><ShieldCheck size={21} className="text-emerald-700" /><h2 className="mt-3 font-black text-emerald-900">Platform-approved provider</h2><p className="mt-2 text-sm leading-6 text-emerald-800">Profile and submitted evidence were reviewed by ServiceLink. This is not external professional accreditation.</p></div></div></GlassPanel><h2 className="mb-5 mt-8 text-2xl font-black">Active services</h2><div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">{items.map((service) => <ServiceCard key={service.id} service={service} saved={false} toggleSaved={() => {}} go={go} />)}</div></div>; }
+
 function WantedAdsPage({ items, query, setQuery, category, setCategory, location, setLocation, go }) { return <div><PageHead eyebrow="WANTED ADS" title="Discover customer work requests" text="Browse active privacy-safe requests. Only approved providers can submit offers." action="Post a wanted ad" onAction={() => go("/customer/wanted-ads/create")} /><SearchFilters query={query} setQuery={setQuery} category={category} setCategory={setCategory} location={location} setLocation={setLocation} showSort={false} /><GlassPanel className="mb-6 border-blue-200 bg-blue-50/80 p-5"><div className="flex gap-3"><ShieldCheck size={21} className="shrink-0 text-blue-600" /><p className="text-sm leading-6 text-blue-900">Exact customer addresses and contact details remain hidden until the correct accepted-offer and booking stage.</p></div></GlassPanel><div className="grid gap-5 md:grid-cols-2">{items.map((ad) => <GlassPanel key={ad.id} className="p-5"><div className="flex items-start justify-between"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-100 text-violet-700"><BriefcaseBusiness size={21} /></span><span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-700">{ad.status}</span></div><h2 className="mt-5 text-xl font-black">{ad.title}</h2><p className="mt-1 text-sm text-slate-500">{ad.id} · {ad.category}</p><div className="mt-4 grid gap-2 text-sm font-semibold sm:grid-cols-2"><span className="flex gap-2"><MapPin size={16} />{ad.area}</span><span className="flex gap-2"><CircleDollarSign size={16} />{ad.budget}</span><span className="flex gap-2"><Clock3 size={16} />{ad.deadline}</span><span className="flex gap-2"><BriefcaseBusiness size={16} />{ad.offers} offers</span></div><button onClick={() => go(`/wanted-ads/${ad.id}`)} className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">View wanted ad</button></GlassPanel>)}</div></div>; }
 function WantedAdDetails({ ad, go }) { return <div><Back onClick={() => go("/wanted-ads")} text="Back to wanted ads" /><GlassPanel className="p-6 sm:p-8"><div className="flex flex-col justify-between gap-4 sm:flex-row"><div><p className="text-sm font-bold text-violet-600">{ad.id} · {ad.category}</p><h1 className="mt-2 text-3xl font-black">{ad.title}</h1></div><span className="self-start rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-700">{ad.status}</span></div><p className="mt-6 leading-7 text-slate-600">{ad.detail}</p><div className="mt-7 grid gap-4 sm:grid-cols-4"><Info label="General area" value={ad.area} /><Info label="Budget" value={ad.budget} /><Info label="Deadline" value={ad.deadline} /><Info label="Offers received" value={String(ad.offers)} /></div><div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm leading-6 text-blue-900"><ShieldCheck size={21} className="mb-2 text-blue-600" />Customer identity, exact address and contact information are protected. Approved providers receive appropriate details only after an offer is accepted and a booking is created.</div><button onClick={() => go(`/provider/wanted-ads/${ad.id}/offer`)} className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-blue-600 px-5 py-4 text-sm font-extrabold text-white">Submit an offer <ArrowRight size={18} /></button><p className="mt-3 text-center text-xs text-slate-500">Visitors and unapproved accounts will later be redirected to the correct login or application-status page.</p></GlassPanel></div>; }
 function Info({ label, value }) { return <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-400">{label}</p><p className="mt-2 font-extrabold">{value}</p></div>; }

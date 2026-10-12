@@ -1,8 +1,4 @@
-import React, {
-useEffect,
-useMemo,
-useState,
-} from "react";
+import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   AlertCircle,
@@ -46,21 +42,46 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 
-
-import {
-createProviderQualification,
-deleteProviderQualification,
-getProviderApplication,
-getProviderQualifications,
-getQualificationDownloadUrl,
-getQualificationPreviewUrl,
-submitProviderApplication,
-updateProviderQualification,
-} from "../api/providerApi.js";
-
 // Demo qualification records let every provider-application screen be tested
 // before private uploads and database records are implemented in Laravel.
-
+const initialQualifications = [
+  {
+    id: "QL-101",
+    title: "National Certificate in Electrical Installation",
+    issuer: "Technical Training Institute",
+    issueDate: "15 March 2023",
+    expiryDate: "No expiry",
+    fileName: "electrical-certificate.pdf",
+    fileType: "PDF",
+    fileSize: "1.4 MB",
+    status: "approved",
+    note: "Qualification accepted for the submitted electrical service category.",
+  },
+  {
+    id: "QL-102",
+    title: "Workplace Safety Training",
+    issuer: "Skills Development Centre",
+    issueDate: "08 June 2025",
+    expiryDate: "08 June 2027",
+    fileName: "safety-training.pdf",
+    fileType: "PDF",
+    fileSize: "820 KB",
+    status: "pending",
+    note: "Waiting for administrator review.",
+  },
+  {
+    id: "QL-103",
+    title: "Previous Employment Reference",
+    issuer: "North Central Property Services",
+    issueDate: "20 January 2026",
+    expiryDate: "No expiry",
+    fileName: "employment-reference.jpg",
+    fileType: "JPG",
+    fileSize: "640 KB",
+    status: "replacement requested",
+    note: "Please upload a clearer scan showing the issuer and complete signature area.",
+  },
+];
 
 const pageTitles = {
   dashboard: "Provider Application Dashboard",
@@ -131,15 +152,10 @@ export default function ProviderApplicationPage({ screen = "dashboard" }) {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [applicationData, setApplicationData] = useState(null);
-const [apiQualifications, setApiQualifications] = useState([]);
-const [applicationLoading, setApplicationLoading] = useState(true);
-const [applicationError, setApplicationError] = useState("");
   const [applicationStatus, setApplicationStatus] = useState("draft");
-  const [qualifications, setQualifications] =
-useState([]);
+  const [qualifications, setQualifications] = useState(initialQualifications);
   const [declarationAccepted, setDeclarationAccepted] = useState(false);
- 
+
   // The profile state is temporary and will later be stored in provider_profiles.
   const [profile, setProfile] = useState({
     displayName: "Kalana HomeTech",
@@ -155,17 +171,12 @@ useState([]);
   });
 
   // Find the qualification referenced by the current direct URL.
-  const activeQualification = useMemo(() => {
-if (!qualifications.length) {
-return null;
-}
-
-return (
-qualifications.find(
-(item) => item.id === params.id
-) || qualifications[0]
-);
-}, [params.id, qualifications]);
+  const activeQualification = useMemo(
+    () =>
+      qualifications.find((item) => item.id === params.id) ||
+      qualifications[0],
+    [params.id, qualifications]
+  );
 
   // Completion data drives the dashboard checklist and review screen.
   const completion = useMemo(() => {
@@ -189,57 +200,9 @@ qualifications.find(
   }, [profile, qualifications, declarationAccepted]);
 
   const completedSteps = Object.values(completion).filter(Boolean).length;
-  const completionPercent =
-applicationData?.completion?.percentage ??
-Math.round((completedSteps / 4) * 100);
+  const completionPercent = Math.round((completedSteps / 4) * 100);
 
   // Display temporary feedback until Laravel actions and persistence are connected.
-  const loadProviderApplicationData = async () => {
-setApplicationLoading(true);
-setApplicationError("");
-
-try {
-const [
-applicationResult,
-qualificationsResult,
-] = await Promise.all([
-getProviderApplication(),
-getProviderQualifications(),
-]);
-
-setApplicationData(applicationResult.data);
-
-const qualificationItems =
-qualificationsResult.data?.items || [];
-
-setApiQualifications(qualificationItems);
-
-setQualifications(
-qualificationItems.map(mapApiQualification)
-);
-
-if (applicationResult.data?.application?.status) {
-setApplicationStatus(
-applicationResult.data.application.status
-);
-}
-} catch (error) {
-console.error(
-"Provider application request failed:",
-error
-);
-
-setApplicationError(
-error.message ||
-"The provider application could not be loaded."
-);
-} finally {
-setApplicationLoading(false);
-}
-};
-useEffect(() => {
-loadProviderApplicationData();
-}, []);
   const showNotice = (message) => {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2800);
@@ -259,54 +222,6 @@ loadProviderApplicationData();
     [FileCheck2, "Review Application", "/provider/application/review"],
     [Clock3, "Application Status", "/provider/application/status"],
   ];
-
-  if (applicationLoading) {
-return (
-<main className="grid min-h-screen place-items-center bg-[#f3f8fc] p-6">
-<section className="w-full max-w-md rounded-[1.7rem] border border-white/90 bg-white/75 p-8 text-center shadow-2xl backdrop-blur-2xl">
-<div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-violet-100 border-t-violet-600" />
-
-<h1 className="mt-5 text-xl font-black">
-Loading provider application
-</h1>
-
-<p className="mt-2 text-sm text-slate-500">
-ServiceLink is retrieving the saved application and
-qualification records.
-</p>
-</section>
-</main>
-);
-}
-
-if (applicationError) {
-return (
-<main className="grid min-h-screen place-items-center bg-[#f3f8fc] p-6">
-<section className="w-full max-w-lg rounded-[1.7rem] border border-rose-200 bg-rose-50/90 p-8 text-center shadow-2xl">
-<AlertCircle
-size={34}
-className="mx-auto text-rose-600"
-/>
-
-<h1 className="mt-5 text-2xl font-black text-rose-900">
-Provider application unavailable
-</h1>
-
-<p className="mt-2 text-sm text-rose-700">
-{applicationError}
-</p>
-
-<button
-type="button"
-onClick={loadProviderApplicationData}
-className="mt-6 rounded-xl bg-rose-600 px-5 py-3 text-sm font-extrabold text-white"
->
-Try again
-</button>
-</section>
-</main>
-);
-}
 
   return (
     <div className="min-h-screen bg-[#f3f8fc] text-slate-900">
@@ -372,11 +287,7 @@ Try again
           {/* Progress card explains what remains before the application can be reviewed. */}
           <div className="my-5 rounded-2xl bg-gradient-to-br from-violet-700 to-blue-700 p-4 text-white shadow-lg">
             <p className="text-xs font-bold text-violet-100">PROVIDER APPLICATION</p>
-            <p className="mt-1 font-black">
-{applicationData?.application?.business_name ||
-applicationData?.provider?.name ||
-"Service Provider"}
-</p>
+            <p className="mt-1 font-black">Kalana HomeTech</p>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/20">
               <div
                 className="h-full rounded-full bg-white transition-all"
@@ -514,7 +425,6 @@ applicationData?.provider?.name ||
                   qualifications={qualifications}
                   go={go}
                   showNotice={showNotice}
-                  reload={loadProviderApplicationData}
                 />
               )}
 
@@ -522,9 +432,10 @@ applicationData?.provider?.name ||
                 <QualificationForm
                   mode={params.id ? "edit" : "create"}
                   qualification={activeQualification}
+                  qualifications={qualifications}
+                  setQualifications={setQualifications}
                   showNotice={showNotice}
                   go={go}
-                  reload={loadProviderApplicationData}
                 />
               )}
 
@@ -538,15 +449,15 @@ applicationData?.provider?.name ||
 
               {screen === "review" && (
                 <ReviewApplication
-                  applicationData={applicationData}
+                  profile={profile}
                   qualifications={qualifications}
+                  completion={completion}
                   declarationAccepted={declarationAccepted}
                   setDeclarationAccepted={setDeclarationAccepted}
-                  applicationStatus={applicationStatus}
                   setApplicationStatus={setApplicationStatus}
+                  applicationStatus={applicationStatus}
                   showNotice={showNotice}
                   go={go}
-                  reload={loadProviderApplicationData}
                 />
               )}
 
@@ -740,184 +651,71 @@ function ProfessionalProfile({ profile, setProfile, showNotice, go }) {
 }
 
 // Qualification list shows document status and the next action for each record.
-function QualificationsList({
-  qualifications,
-  go,
-  showNotice,
-  reload,
-}) {
-  const [deletingId, setDeletingId] = useState("");
-
-  const handleDelete = async (qualification) => {
-    const confirmed = window.confirm(
-      `Delete "${qualification.title}"? This also removes the private document.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingId(qualification.id);
-
-    try {
-      await deleteProviderQualification(qualification.id);
-
-      showNotice("Qualification deleted successfully");
-
-      await reload();
-    } catch (error) {
-      console.error(
-        "Qualification deletion failed:",
-        error
-      );
-
-      showNotice(
-        error.message ||
-        "The qualification could not be deleted"
-      );
-    } finally {
-      setDeletingId("");
-    }
-  };
-
+function QualificationsList({ qualifications, go, showNotice }) {
   return (
     <div>
-      Add qualification =
-      go(
-      "/provider/application/qualifications/create"
-      )
-
+      <PageHeading
+        title="Qualifications and Certifications"
+        text="Add certificates, qualifications, licences, safety training or professional references relevant to the intended services."
+        action="Add qualification"
+        onAction={() => go("/provider/application/qualifications/create")}
+      />
 
       <GlassPanel className="mb-6 border-blue-200 bg-blue-50/80 p-5">
         <div className="flex gap-3">
-          <ShieldCheck
-            className="shrink-0 text-blue-600"
-            size={21}
-          />
-
+          <ShieldCheck className="shrink-0 text-blue-600" size={21} />
           <div>
-            <h3 className="font-black text-blue-900">
-              Documents remain private
-            </h3>
-
+            <h3 className="font-black text-blue-900">Documents remain private</h3>
             <p className="mt-1 text-sm leading-6 text-blue-800">
-              Qualification documents are available only
-              through protected Laravel routes.
+              Qualification files will only be available to the provider and authorized administrators through protected application routes.
             </p>
           </div>
         </div>
       </GlassPanel>
 
       <div className="space-y-4">
-        {qualifications.length === 0 && (
-          <GlassPanel className="p-8 text-center">
-            <GraduationCap
-              size={34}
-              className="mx-auto text-slate-400"
-            />
-
-            <h3 className="mt-4 text-xl font-black">
-              No qualifications added
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Add at least one qualification before
-              submitting the application.
-            </p>
-
-            <button
-              type="button"
-              onClick={() =>
-                go(
-                  "/provider/application/qualifications/create"
-                )
-              }
-              className="mt-5 rounded-xl bg-violet-600 px-5 py-3 text-sm font-extrabold text-white"
-            >
-              Add qualification
-            </button>
-          </GlassPanel>
-        )}
-
         {qualifications.map((qualification) => (
-          <GlassPanel
-            key={qualification.id}
-            className="p-5"
-          >
+          <GlassPanel key={qualification.id} className="p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
               <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700">
                 <FileText size={24} />
               </span>
-
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-black">
-                    {qualification.title}
-                  </h3>
-
-                  <StatusBadge
-                    status={qualification.status}
-                  />
+                  <h3 className="text-lg font-black">{qualification.title}</h3>
+                  <StatusBadge status={qualification.status} />
                 </div>
-
                 <p className="mt-1 text-sm text-slate-500">
-                  {qualification.id} ·{" "}
-                  {qualification.issuer}
+                  {qualification.id} · {qualification.issuer}
                 </p>
-
                 <div className="mt-3 flex flex-wrap gap-4 text-sm font-semibold text-slate-600">
                   <span>{qualification.fileType}</span>
-
-                  <span>{qualification.fileName}</span>
-
-                  <span>
-                    Issued {qualification.issueDate}
-                  </span>
+                  <span>{qualification.fileSize}</span>
+                  <span>Issued {qualification.issueDate}</span>
                 </div>
-
-                {qualification.note && (
-                  <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                {qualification.status === "replacement requested" && (
+                  <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
                     {qualification.note}
                   </p>
                 )}
               </div>
-
               <div className="flex flex-wrap gap-2">
                 <button
-                  type="button"
-                  onClick={() =>
-                    go(
-                      `/provider/application/qualifications/${qualification.id}`
-                    )
-                  }
+                  onClick={() => go(`/provider/application/qualifications/${qualification.id}`)}
                   className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white"
                 >
                   View details
                 </button>
-
                 <button
-                  type="button"
-                  onClick={() =>
-                    go(
-                      `/provider/application/qualifications/${qualification.id}/edit`
-                    )
-                  }
+                  onClick={() => go(`/provider/application/qualifications/${qualification.id}/edit`)}
                   className="rounded-xl bg-violet-50 px-4 py-3 text-sm font-extrabold text-violet-700"
                 >
-                  Edit or replace
+                  {qualification.status === "replacement requested" ? "Replace file" : "Edit"}
                 </button>
-
                 <button
-                  type="button"
-                  onClick={() =>
-                    handleDelete(qualification)
-                  }
-                  disabled={
-                    deletingId === qualification.id
-                  }
-                  className="grid h-11 w-11 place-items-center rounded-xl bg-rose-50 text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label={`Delete ${qualification.title}`}
-                  title="Delete qualification"
+                  onClick={() => showNotice("Delete confirmation will be added during functionality development")}
+                  className="grid h-11 w-11 place-items-center rounded-xl bg-rose-50 text-rose-600"
+                  aria-label="Delete qualification"
                 >
                   <Trash2 size={18} />
                 </button>
@@ -927,415 +725,121 @@ function QualificationsList({
         ))}
       </div>
 
-      {qualifications.length > 0 && (
-        <button
-          type="button"
-          onClick={() =>
-            go("/provider/application/review")
-          }
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-blue-600 px-5 py-4 text-sm font-extrabold text-white shadow-lg"
-        >
-          Review complete application
-          <ArrowRight size={18} />
-        </button>
-      )}
+      <button
+        onClick={() => go("/provider/application/review")}
+        className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-blue-600 px-5 py-4 text-sm font-extrabold text-white shadow-lg"
+      >
+        Review complete application <ArrowRight size={18} />
+      </button>
     </div>
   );
 }
 
-function QualificationForm({
-  mode,
-  qualification,
-  showNotice,
-  go,
-  reload,
-}) {
+// Qualification form handles both adding metadata and replacing an existing file.
+function QualificationForm({ mode, qualification, qualifications, setQualifications, showNotice, go }) {
   const isEdit = mode === "edit";
-
   const [form, setForm] = useState({
-    title: "",
-    issuer: "",
-    issued_on: "",
-    expires_on: "",
-    document: null,
+    title: isEdit ? qualification.title : "",
+    issuer: isEdit ? qualification.issuer : "",
+    issueDate: "",
+    expiryDate: "",
+    note: "",
+    fileName: isEdit ? qualification.fileName : "",
   });
 
-  const [saving, setSaving] = useState(false);
-  const [requestError, setRequestError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
-
-  useEffect(() => {
-    if (!isEdit || !qualification) {
-      return;
-    }
-
-    setForm({
-      title: qualification.title || "",
-      issuer: qualification.issuer || "",
-      issued_on:
-        qualification.issueDate === "Not supplied"
-          ? ""
-          : qualification.issueDate || "",
-      expires_on:
-        qualification.expiryDate === "No expiry"
-          ? ""
-          : qualification.expiryDate || "",
-      document: null,
-    });
-  }, [isEdit, qualification]);
-
-  const setValue = (field, value) => {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-
-    setFieldErrors((current) => ({
-      ...current,
-      [field]: undefined,
-    }));
-  };
-
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
 
-    setSaving(true);
-    setRequestError("");
-    setFieldErrors({});
-
-    const formData = new FormData();
-
-    formData.append("title", form.title);
-    formData.append("issuer", form.issuer);
-
-    if (form.issued_on) {
-      formData.append("issued_on", form.issued_on);
+    if (!isEdit) {
+      const newQualification = {
+        id: `QL-${104 + qualifications.length}`,
+        title: form.title || "New qualification",
+        issuer: form.issuer || "Issuing organization",
+        issueDate: form.issueDate || "Not supplied",
+        expiryDate: form.expiryDate || "No expiry",
+        fileName: form.fileName || "qualification-document.pdf",
+        fileType: "PDF",
+        fileSize: "Pending upload",
+        status: "pending",
+        note: "Waiting for administrator review.",
+      };
+      setQualifications([...qualifications, newQualification]);
     }
 
-    if (form.expires_on) {
-      formData.append("expires_on", form.expires_on);
-    }
-
-    if (form.document) {
-      formData.append("document", form.document);
-    }
-
-    try {
-      if (isEdit) {
-        if (!qualification) {
-          throw new Error("Qualification not found.");
-        }
-
-        await updateProviderQualification(
-          qualification.id,
-          formData
-        );
-      } else {
-        await createProviderQualification(formData);
-      }
-
-      await reload();
-
-      showNotice(
-        isEdit
-          ? "Qualification updated successfully"
-          : "Qualification added successfully"
-      );
-
-      go("/provider/application/qualifications");
-    } catch (error) {
-      console.error(
-        "Qualification request failed:",
-        error
-      );
-
-      setRequestError(
-        error.message ||
-        "The qualification could not be saved."
-      );
-
-      setFieldErrors(error.errors || {});
-    } finally {
-      setSaving(false);
-    }
+    showNotice(isEdit ? "Qualification changes saved in the prototype" : "Qualification added in the prototype");
+    go("/provider/application/qualifications");
   };
-
-  if (isEdit && !qualification) {
-    return (
-      <GlassPanel className="p-8 text-center">
-        <AlertCircle
-          size={34}
-          className="mx-auto text-amber-600"
-        />
-
-        <h2 className="mt-4 text-xl font-black">
-          Qualification not found
-        </h2>
-
-        <button
-          type="button"
-          onClick={() =>
-            go("/provider/application/qualifications")
-          }
-          className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
-        >
-          Return to qualifications
-        </button>
-      </GlassPanel>
-    );
-  }
 
   return (
     <GlassPanel className="p-6 sm:p-8">
       <BackButton
-        onClick={() =>
-          go("/provider/application/qualifications")
-        }
+        onClick={() => go("/provider/application/qualifications")}
         text="Back to qualifications"
       />
-
       <div className="mt-6">
         <PageHeading
-          title={
-            isEdit
-              ? "Edit or Replace Qualification"
-              : "Add Qualification"
-          }
-          text="Provide accurate qualification details and choose a PDF, JPG, JPEG or PNG document."
+          title={isEdit ? "Edit or Replace Qualification" : "Add Qualification"}
+          text="Provide document information and choose a clear PDF, JPG, JPEG or PNG file."
         />
       </div>
 
-      {requestError && (
-        <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
-          {requestError}
-        </div>
-      )}
-
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-5 sm:grid-cols-2"
-      >
+      <form onSubmit={handleSubmit} className="grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <QualificationInput
-            label="Qualification or certification title"
-            value={form.title}
-            onChange={(value) =>
-              setValue("title", value)
-            }
-            error={fieldErrors.title?.[0]}
-            required
-          />
+          <InputField label="Qualification or certification title" value={form.title} onChange={(value) => setForm({ ...form, title: value })} required />
         </div>
-
-        <QualificationInput
-          label="Issuing organization"
-          value={form.issuer}
-          onChange={(value) =>
-            setValue("issuer", value)
-          }
-          error={fieldErrors.issuer?.[0]}
-          required
-        />
-
-        <QualificationInput
-          label="Issue date"
-          type="date"
-          value={form.issued_on}
-          onChange={(value) =>
-            setValue("issued_on", value)
-          }
-          error={fieldErrors.issued_on?.[0]}
-        />
-
-        <QualificationInput
-          label="Expiry date"
-          type="date"
-          value={form.expires_on}
-          onChange={(value) =>
-            setValue("expires_on", value)
-          }
-          error={fieldErrors.expires_on?.[0]}
-        />
+        <InputField label="Issuing organization" value={form.issuer} onChange={(value) => setForm({ ...form, issuer: value })} required />
+        <SelectField label="Document type" value="Certificate" onChange={() => {}} options={["Certificate", "Diploma", "Licence", "Membership", "Training", "Reference"]} required />
+        <InputField label="Issue date" type="date" value={form.issueDate} onChange={(value) => setForm({ ...form, issueDate: value })} required />
+        <InputField label="Expiry date" type="date" value={form.expiryDate} onChange={(value) => setForm({ ...form, expiryDate: value })} help="Leave empty when the document does not expire." />
+        <div className="sm:col-span-2">
+          <TextAreaField label="Provider note" value={form.note} onChange={(value) => setForm({ ...form, note: value })} help="Optional explanation of how the qualification relates to the selected services." />
+        </div>
 
         <div className="sm:col-span-2">
           <Field
-            label={
-              isEdit
-                ? "Replacement document"
-                : "Qualification document"
-            }
-            help={
-              isEdit
-                ? "Leave empty to keep the existing document."
-                : "Accepted formats: PDF, JPG, JPEG and PNG. Maximum size: 5 MB."
-            }
+            label={isEdit ? "Replacement document file" : "Supporting document file"}
             required={!isEdit}
+            help="Preferred format: PDF. Accepted prototype formats: PDF, JPG, JPEG and PNG. Maximum planned size: 5 MB."
           >
             <label className="flex cursor-pointer flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-violet-200 bg-violet-50/60 p-8 text-center transition hover:bg-violet-100/70">
-              <UploadCloud
-                size={34}
-                className="text-violet-600"
-              />
-
+              <UploadCloud size={34} className="text-violet-600" />
               <span className="mt-3 font-black text-violet-800">
-                {form.document?.name ||
-                  (isEdit
-                    ? qualification.fileName
-                    : "Choose a document")}
+                {form.fileName || "Choose a document to upload"}
               </span>
-
               <span className="mt-1 text-xs text-violet-600">
-                The document is stored privately by Laravel.
+                The selected file will be stored privately after Laravel integration.
               </span>
-
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
-                required={!isEdit}
                 className="hidden"
                 onChange={(event) =>
-                  setValue(
-                    "document",
-                    event.target.files?.[0] || null
-                  )
+                  setForm({
+                    ...form,
+                    fileName: event.target.files?.[0]?.name || form.fileName,
+                  })
                 }
               />
             </label>
-
-            {fieldErrors.document?.[0] && (
-              <span className="mt-2 block text-xs font-bold text-rose-600">
-                {fieldErrors.document[0]}
-              </span>
-            )}
           </Field>
         </div>
 
-        <div className="sm:col-span-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() =>
-              go("/provider/application/qualifications")
-            }
-            className="rounded-2xl bg-slate-100 px-6 py-3 text-sm font-extrabold text-slate-700 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-blue-600 px-6 py-3 text-sm font-extrabold text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Save size={17} />
-
-            {saving
-              ? "Saving qualification..."
-              : isEdit
-                ? "Save qualification"
-                : "Add qualification"}
-          </button>
-        </div>
+        <FormActions
+          cancelText="Cancel"
+          submitText={isEdit ? "Save qualification" : "Add qualification"}
+          onCancel={() => go("/provider/application/qualifications")}
+        />
       </form>
     </GlassPanel>
   );
 }
 
-function QualificationInput({
-  label,
-  type = "text",
-  value,
-  onChange,
-  error,
-  required = false,
-}) {
-  return (
-    <Field label={label} required={required}>
-      <input
-        type={type}
-        value={value}
-        required={required}
-        onChange={(event) =>
-          onChange(event.target.value)
-        }
-        className={`w-full rounded-2xl border bg-white/75 px-4 py-4 text-sm font-semibold outline-none transition focus:ring-4 ${error
-            ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100"
-            : "border-white/90 focus:border-violet-300 focus:ring-violet-100"
-          }`}
-      />
-
-      {error && (
-        <span className="mt-2 block text-xs font-bold text-rose-600">
-          {error}
-        </span>
-      )}
-    </Field>
-  );
-}
-
-// Qualification form handles both adding metadata and replacing an existing file.
-
-
 // Qualification detail provides a protected-document preview and review information.
-function QualificationDetails({
-  qualification,
-  go,
-}) {
-  if (!qualification) {
-    return (
-      <GlassPanel className="p-8 text-center">
-        <AlertCircle
-          size={34}
-          className="mx-auto text-amber-600"
-        />
-
-        <h2 className="mt-4 text-xl font-black">
-          Qualification not found
-        </h2>
-
-        <button
-          type="button"
-          onClick={() =>
-            go("/provider/application/qualifications")
-          }
-          className="mt-5 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
-        >
-          Return to qualifications
-        </button>
-      </GlassPanel>
-    );
-  }
-
-  const previewUrl = getQualificationPreviewUrl(
-    qualification.id
-  );
-
-  const downloadUrl = getQualificationDownloadUrl(
-    qualification.id
-  );
-
-  const openPreview = () => {
-    window.open(
-      previewUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  };
-
-  const downloadDocument = () => {
-    window.open(
-      downloadUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
-  };
-
+function QualificationDetails({ qualification, go, showNotice }) {
   return (
     <div className="space-y-6">
       <BackButton
-        onClick={() =>
-          go("/provider/application/qualifications")
-        }
+        onClick={() => go("/provider/application/qualifications")}
         text="Back to qualifications"
       />
 
@@ -1343,104 +847,62 @@ function QualificationDetails({
         <div className="bg-gradient-to-r from-violet-700 to-blue-700 p-6 text-white sm:p-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
             <div>
-              <p className="text-sm font-bold text-violet-100">
-                {qualification.id}
-              </p>
-
+              <p className="text-sm font-bold text-violet-100">{qualification.id}</p>
               <h2 className="mt-2 text-3xl font-black tracking-tight">
                 {qualification.title}
               </h2>
-
-              <p className="mt-2 text-violet-100">
-                {qualification.issuer}
-              </p>
+              <p className="mt-2 text-violet-100">{qualification.issuer}</p>
             </div>
-
-            <StatusBadge
-              status={qualification.status}
-            />
+            <StatusBadge status={qualification.status} />
           </div>
         </div>
 
         <div className="grid gap-6 p-6 sm:p-8 xl:grid-cols-[1fr_0.8fr]">
+          {/* This placeholder represents a protected PDF or image viewer. */}
           <div className="grid min-h-[420px] place-items-center rounded-[1.5rem] border border-slate-200 bg-slate-100 p-6 text-center">
             <div>
               <span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.5rem] bg-white text-violet-700 shadow-lg">
                 <FileText size={36} />
               </span>
-
-              <h3 className="mt-5 text-xl font-black">
-                Protected document
-              </h3>
-
+              <h3 className="mt-5 text-xl font-black">Protected document preview</h3>
               <p className="mt-2 max-w-sm text-sm leading-6 text-slate-500">
-                This document is streamed through the
-                protected Laravel provider route.
+                The real file will be streamed through an authorized Laravel controller rather than exposed through a public URL.
               </p>
-
               <button
-                type="button"
-                onClick={openPreview}
+                onClick={() => showNotice(`Protected preview requested for ${qualification.fileName}`)}
                 className="mt-5 inline-flex items-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white"
               >
-                <Eye size={17} />
-                Open preview
+                <Eye size={17} /> Open preview
               </button>
             </div>
           </div>
 
           <div className="space-y-4">
-            <InfoCard
-              label="Original filename"
-              value={qualification.fileName}
-            />
-
-            <InfoCard
-              label="File type"
-              value={qualification.fileType}
-            />
-
-            <InfoCard
-              label="Issue date"
-              value={qualification.issueDate}
-            />
-
-            <InfoCard
-              label="Expiry date"
-              value={qualification.expiryDate}
-            />
+            <InfoCard label="Stored filename" value={qualification.fileName} />
+            <InfoCard label="File details" value={`${qualification.fileType} · ${qualification.fileSize}`} />
+            <InfoCard label="Issue date" value={qualification.issueDate} />
+            <InfoCard label="Expiry date" value={qualification.expiryDate} />
 
             <div className="rounded-2xl bg-slate-50 p-5">
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Administrator review note
               </p>
-
               <p className="mt-2 text-sm leading-6 text-slate-700">
-                {qualification.note ||
-                  "No administrator note available."}
+                {qualification.note}
               </p>
             </div>
 
             <button
-              type="button"
-              onClick={() =>
-                go(
-                  `/provider/application/qualifications/${qualification.id}/edit`
-                )
-              }
+              onClick={() => go(`/provider/application/qualifications/${qualification.id}/edit`)}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 py-4 text-sm font-extrabold text-white"
             >
-              <Pencil size={17} />
-              Edit or replace document
+              <Pencil size={17} /> Edit or replace document
             </button>
-
             <button
-              type="button"
-              onClick={downloadDocument}
+              onClick={() => showNotice("Protected document download will be connected later")}
               className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-100 px-5 py-4 text-sm font-extrabold text-slate-700"
             >
-              <Download size={17} />
-              Download my document
+              <Download size={17} /> Download my document
             </button>
           </div>
         </div>
@@ -1449,263 +911,65 @@ function QualificationDetails({
   );
 }
 
-function mapApiQualification(item) {
-  const fileName =
-    item.original_filename || "Qualification document";
-
-  const extension =
-    fileName.includes(".")
-      ? fileName.split(".").pop().toUpperCase()
-      : "FILE";
-
-  return {
-    id: item.public_id,
-    databaseId: item.id,
-    applicationId: item.provider_application_id,
-    providerId: item.provider_id,
-    title: item.title,
-    issuer: item.issuer,
-    issueDate: item.issued_on || "Not supplied",
-    expiryDate: item.expires_on || "No expiry",
-    fileName,
-    fileType: extension,
-    fileSize: "Private document",
-    status: String(item.status || "pending").replaceAll(
-      "_",
-      " "
-    ),
-    note:
-      item.review_note ||
-      "Waiting for administrator review.",
-    createdAt: item.created_at,
-    updatedAt: item.updated_at,
-  };
-}
-
 // Review screen summarizes the complete application before final submission.
-function ReviewApplication({
-  applicationData,
-  qualifications,
-  declarationAccepted,
-  setDeclarationAccepted,
-  applicationStatus,
-  setApplicationStatus,
-  showNotice,
-  go,
-  reload,
-}) {
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+function ReviewApplication({ profile, qualifications, completion, declarationAccepted, setDeclarationAccepted, setApplicationStatus, applicationStatus, showNotice, go }) {
+  const ready = completion.account && completion.profile && completion.qualifications && declarationAccepted;
 
-  const provider = applicationData?.provider || {};
-  const application = applicationData?.application || {};
-  const profile = applicationData?.profile || {};
-  const completionData = applicationData?.completion || {};
-
-  const normalizedStatus = String(
-    applicationStatus || application.status || ""
-  )
-    .toLowerCase()
-    .replaceAll("_", " ");
-
-  const canSubmit = [
-    "draft",
-    "incomplete",
-    "changes requested",
-  ].includes(normalizedStatus);
-
-  const profileComplete =
-    completionData.profile_complete ?? false;
-
-  const qualificationsComplete =
-    completionData.qualifications_complete ??
-    qualifications.length > 0;
-
-  const handleSubmit = async () => {
-    if (!declarationAccepted) {
-      setSubmitError(
-        "Accept the provider declaration before submitting."
-      );
+  const submitApplication = () => {
+    if (!ready) {
+      showNotice("Complete the required sections and accept the declaration first");
       return;
     }
-
-    if (!profileComplete) {
-      setSubmitError(
-        "Complete the professional profile before submitting."
-      );
-      return;
-    }
-
-    if (!qualificationsComplete) {
-      setSubmitError(
-        "Add at least one qualification before submitting."
-      );
-      return;
-    }
-
-    setSubmitting(true);
-    setSubmitError("");
-
-    try {
-      const result =
-        await submitProviderApplication();
-
-      setApplicationStatus(
-        result.data?.application?.status || "pending"
-      );
-
-      await reload();
-
-      showNotice(
-        "Provider application submitted successfully"
-      );
-
-      go("/provider/application/status");
-    } catch (error) {
-      console.error(
-        "Application submission failed:",
-        error
-      );
-
-      setSubmitError(
-        error.message ||
-        "The provider application could not be submitted."
-      );
-    } finally {
-      setSubmitting(false);
-    }
+    setApplicationStatus("pending");
+    showNotice("Provider application submitted for administrator review");
+    window.setTimeout(() => go("/provider/application/status"), 700);
   };
 
   return (
     <div className="space-y-6">
       <PageHeading
         title="Review and Submit Application"
-        text="Check the saved professional profile and qualification documents before submitting the application."
+        text="Check all professional details and supporting documents before sending the application for administrator review."
       />
 
-      {submitError && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">
-          {submitError}
-        </div>
-      )}
-
       <GlassPanel className="p-6 sm:p-8">
-        Edit profile =
-        go("/provider/profile/edit")
-
-
+        <ReviewHeader
+          title="Professional profile"
+          complete={completion.profile}
+          action="Edit profile"
+          onAction={() => go("/provider/application/profile")}
+        />
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <InfoCard
-            label="Business name"
-            value={
-              profile.business_name ||
-              application.business_name ||
-              "Not supplied"
-            }
-          />
-
-          <InfoCard
-            label="Account name"
-            value={provider.name || "Not supplied"}
-          />
-
-          <InfoCard
-            label="Professional title"
-            value={
-              profile.professional_title ||
-              "Not supplied"
-            }
-          />
-
-          <InfoCard
-            label="Operating district"
-            value={
-              profile.primary_district ||
-              "Not supplied"
-            }
-          />
-
-          <InfoCard
-            label="Years of experience"
-            value={`${profile.years_experience ?? 0} years`}
-          />
-
-          <InfoCard
-            label="Coverage area"
-            value={
-              profile.coverage_area ||
-              "Not supplied"
-            }
-          />
-
+          <InfoCard label="Display name" value={profile.displayName} />
+          <InfoCard label="Professional title" value={profile.professionalTitle} />
+          <InfoCard label="Operating district" value={profile.district} />
+          <InfoCard label="Years of experience" value={`${profile.experience} years`} />
           <div className="sm:col-span-2">
-            <InfoCard
-              label="Professional summary"
-              value={
-                profile.professional_summary ||
-                application.summary ||
-                "Not supplied"
-              }
-            />
-          </div>
-
-          <div className="sm:col-span-2">
-            <InfoCard
-              label="Service categories"
-              value={
-                application.categories_text ||
-                "Not supplied"
-              }
-            />
+            <InfoCard label="Categories" value={profile.categories.join(", ")} />
           </div>
         </div>
       </GlassPanel>
 
       <GlassPanel className="p-6 sm:p-8">
-        Manage qualifications =
-        go(
-        "/provider/application/qualifications"
-        )
-
-
+        <ReviewHeader
+          title="Qualifications and documents"
+          complete={completion.qualifications}
+          action="Manage qualifications"
+          onAction={() => go("/provider/application/qualifications")}
+        />
         <div className="mt-5 space-y-3">
-          {qualifications.length === 0 && (
-            <div className="rounded-2xl bg-amber-50 p-5 text-sm font-semibold text-amber-800">
-              At least one qualification document is
-              required.
-            </div>
-          )}
-
           {qualifications.map((qualification) => (
             <button
-              type="button"
               key={qualification.id}
-              onClick={() =>
-                go(
-                  `/provider/application/qualifications/${qualification.id}`
-                )
-              }
-              className="flex w-full items-center gap-4 rounded-2xl bg-slate-50 p-4 text-left transition hover:bg-violet-50"
+              onClick={() => go(`/provider/application/qualifications/${qualification.id}`)}
+              className="flex w-full items-center gap-4 rounded-2xl bg-slate-50 p-4 text-left hover:bg-violet-50"
             >
-              <FileText
-                size={20}
-                className="shrink-0 text-violet-600"
-              />
-
+              <FileText size={20} className="text-violet-600" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-extrabold">
-                  {qualification.title}
-                </span>
-
-                <span className="text-sm text-slate-500">
-                  {qualification.fileName}
-                </span>
+                <span className="block truncate font-extrabold">{qualification.title}</span>
+                <span className="text-sm text-slate-500">{qualification.fileName}</span>
               </span>
-
-              <StatusBadge
-                status={qualification.status}
-              />
-
+              <StatusBadge status={qualification.status} />
               <ChevronRight size={18} />
             </button>
           ))}
@@ -1713,86 +977,35 @@ function ReviewApplication({
       </GlassPanel>
 
       <GlassPanel className="p-6 sm:p-8">
-        <h3 className="text-xl font-black">
-          Provider declaration
-        </h3>
-
+        <h3 className="text-xl font-black">Provider declaration</h3>
         <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-violet-200 bg-violet-50/70 p-5">
           <input
             type="checkbox"
             checked={declarationAccepted}
-            onChange={(event) => {
-              setDeclarationAccepted(
-                event.target.checked
-              );
-
-              if (event.target.checked) {
-                setSubmitError("");
-              }
-            }}
+            onChange={(event) => setDeclarationAccepted(event.target.checked)}
             className="mt-1 h-4 w-4 accent-violet-600"
           />
-
           <span className="text-sm leading-6 text-slate-700">
-            I confirm that the submitted professional
-            information and qualification documents are
-            accurate. I understand that administrator
-            approval is platform approval and not external
-            professional accreditation.
+            I confirm that the submitted profile information and uploaded documents are accurate to the best of my knowledge. I understand that ServiceLink administrator review is platform approval and not external professional accreditation.
           </span>
         </label>
       </GlassPanel>
 
-      {!canSubmit && (
-        <GlassPanel className="border-blue-200 bg-blue-50/80 p-5">
-          <div className="flex gap-3">
-            <Info
-              size={21}
-              className="shrink-0 text-blue-600"
-            />
-
-            <div>
-              <h3 className="font-black text-blue-900">
-                Application already submitted
-              </h3>
-
-              <p className="mt-1 text-sm leading-6 text-blue-800">
-                Current status:{" "}
-                <strong className="capitalize">
-                  {normalizedStatus || "pending"}
-                </strong>
-                . The application can be resubmitted only
-                when changes are requested.
-              </p>
-            </div>
-          </div>
-        </GlassPanel>
-      )}
-
       <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={
-          submitting ||
-          !canSubmit ||
-          !declarationAccepted ||
-          !profileComplete ||
-          !qualificationsComplete
-        }
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-700 to-blue-600 px-6 py-4 text-sm font-extrabold text-white shadow-xl disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-400"
+        onClick={submitApplication}
+        disabled={applicationStatus === "pending"}
+        className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-extrabold text-white shadow-xl transition ${
+          ready && applicationStatus !== "pending"
+            ? "bg-gradient-to-r from-violet-700 to-blue-600 hover:-translate-y-0.5"
+            : "cursor-not-allowed bg-slate-400"
+        }`}
       >
         <Send size={18} />
-
-        {submitting
-          ? "Submitting application..."
-          : canSubmit
-            ? "Submit application for review"
-            : "Application already submitted"}
+        {applicationStatus === "pending" ? "Application already submitted" : "Submit application for review"}
       </button>
     </div>
   );
 }
-
 
 // Status screen demonstrates the state eventually returned from the database.
 function ApplicationStatus({ status, setStatus, go, showNotice }) {

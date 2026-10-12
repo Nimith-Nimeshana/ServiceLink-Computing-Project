@@ -7,7 +7,6 @@ import {
   RefreshCw, Send, ShieldCheck, Sparkles, UserRound, Wrench, XCircle,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { loginUser, registerProvider, saveAuthSession } from "../api/authApi.js";
 
 // These values identify every authentication screen used by React Router.
 const SCREENS = {
@@ -113,9 +112,6 @@ export default function AuthenticationPage({ initialScreen = SCREENS.CHOOSE_ROLE
   const [provider, setProvider] = useState({ name: "", business: "", email: "", phone: "", district: "Anuradhapura", password: "", confirmation: "", terms: false });
   const [forgotEmail, setForgotEmail] = useState("");
   const [reset, setReset] = useState({ password: "", confirmation: "" });
-  const [submitting, setSubmitting] = useState(false);
-  const [requestError, setRequestError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState({});
 
   // Keep the visible form synchronized with the route selected in App.jsx.
   useEffect(() => {
@@ -154,51 +150,6 @@ export default function AuthenticationPage({ initialScreen = SCREENS.CHOOSE_ROLE
     navigate(routes[nextScreen] || "/register");
   };
 
-  const handleLogin = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setRequestError("");
-    setFieldErrors({});
-    try {
-      const result = await loginUser(login);
-      saveAuthSession(result.data, login.remember);
-      navigate(result.data.destination || "/");
-    } catch (error) {
-      setRequestError(error.message || "Login failed.");
-      setFieldErrors(error.errors || {});
-      if (error.status === 403 && error.data?.destination) {
-        navigate(error.data.destination);
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleProviderRegistration = async (event) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setRequestError("");
-    setFieldErrors({});
-    try {
-      const result = await registerProvider({
-        name: provider.name,
-        business_name: provider.business,
-        email: provider.email,
-        phone: provider.phone || null,
-        password: provider.password,
-        password_confirmation: provider.confirmation,
-        categories_text: "Not selected",
-      });
-      saveAuthSession(result.data, false);
-      navigate(result.data.destination || "/provider/application");
-    } catch (error) {
-      setRequestError(error.message || "Provider registration failed.");
-      setFieldErrors(error.errors || {});
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const screenTitle = {
     [SCREENS.CHOOSE_ROLE]: "Create your ServiceLink account",
     [SCREENS.CUSTOMER_REGISTER]: "Create a customer account",
@@ -230,13 +181,12 @@ export default function AuthenticationPage({ initialScreen = SCREENS.CHOOSE_ROLE
                   <h1 className="mt-2 text-3xl font-black tracking-[-0.045em] text-slate-950 sm:text-4xl">{screenTitle}</h1>
                 </div>
 
-                {requestError && <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">{requestError}</div>}
                 {screen === SCREENS.CHOOSE_ROLE && <div><p className="mb-7 leading-7 text-slate-600">Choose the account that matches how you plan to use ServiceLink.</p><div className="grid gap-4 xl:grid-cols-2"><RoleCard icon={UserRound} title="Customer" description="Find services, request bookings and publish wanted advertisements." features={["Book provider services", "Post wanted advertisements", "Compare provider offers"]} colour="from-blue-600 to-cyan-500" onClick={() => changeScreen(SCREENS.CUSTOMER_REGISTER)} /><RoleCard icon={BriefcaseBusiness} title="Provider" description="Build a professional profile and connect with customers after approval." features={["Publish service listings", "Respond to wanted ads", "Manage bookings and offers"]} colour="from-violet-600 to-indigo-600" onClick={() => changeScreen(SCREENS.PROVIDER_REGISTER)} /></div><p className="mt-6 text-center text-sm font-semibold text-slate-500">Already registered? <button onClick={() => changeScreen(SCREENS.LOGIN)} className="font-extrabold text-blue-700">Log in</button></p></div>}
 
-                {screen === SCREENS.CUSTOMER_REGISTER && <RegistrationForm type="customer" values={customer} setValues={setCustomer} score={passwordScore} showNotice={showNotice} submitting={submitting} fieldErrors={fieldErrors} />}
-                {screen === SCREENS.PROVIDER_REGISTER && <RegistrationForm type="provider" values={provider} setValues={setProvider} score={passwordScore} showNotice={showNotice} onSubmit={handleProviderRegistration} submitting={submitting} fieldErrors={fieldErrors} />}
+                {screen === SCREENS.CUSTOMER_REGISTER && <RegistrationForm type="customer" values={customer} setValues={setCustomer} score={passwordScore} showNotice={showNotice} />}
+                {screen === SCREENS.PROVIDER_REGISTER && <RegistrationForm type="provider" values={provider} setValues={setProvider} score={passwordScore} showNotice={showNotice} />}
 
-                {screen === SCREENS.LOGIN && <form onSubmit={handleLogin}><p className="mb-7 leading-7 text-slate-600">Enter the email address and password connected to your ServiceLink account.</p><div className="space-y-5"><FormField label="Email address" icon={Mail} type="email" value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} placeholder="name@example.com" required /><PasswordField label="Password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} placeholder="Enter your password" /></div><div className="mt-4 flex items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm font-semibold text-slate-600"><input type="checkbox" checked={login.remember} onChange={(e) => setLogin({ ...login, remember: e.target.checked })} className="accent-blue-600" /> Remember me</label><button type="button" onClick={() => changeScreen(SCREENS.FORGOT_PASSWORD)} className="text-sm font-extrabold text-blue-700">Forgot password?</button></div><div className="mt-6"><PrimaryButton text={submitting ? "Logging in..." : "Log in securely"} icon={ArrowRight} disabled={submitting} /></div><button type="button" onClick={() => changeScreen(SCREENS.CHOOSE_ROLE)} className="mt-5 w-full rounded-2xl border border-blue-200 bg-blue-50/80 px-5 py-4 text-sm font-extrabold text-blue-700">Create an account</button></form>}
+                {screen === SCREENS.LOGIN && <form onSubmit={(event) => { event.preventDefault(); showNotice("Login submitted. Laravel will later redirect by role."); }}><p className="mb-7 leading-7 text-slate-600">Enter the email address and password connected to your ServiceLink account.</p><div className="space-y-5"><FormField label="Email address" icon={Mail} type="email" value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} placeholder="name@example.com" required /><PasswordField label="Password" value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })} placeholder="Enter your password" /></div><div className="mt-4 flex items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm font-semibold text-slate-600"><input type="checkbox" checked={login.remember} onChange={(e) => setLogin({ ...login, remember: e.target.checked })} className="accent-blue-600" /> Remember me</label><button type="button" onClick={() => changeScreen(SCREENS.FORGOT_PASSWORD)} className="text-sm font-extrabold text-blue-700">Forgot password?</button></div><div className="mt-6"><PrimaryButton text="Log in securely" icon={ArrowRight} /></div><button type="button" onClick={() => changeScreen(SCREENS.CHOOSE_ROLE)} className="mt-5 w-full rounded-2xl border border-blue-200 bg-blue-50/80 px-5 py-4 text-sm font-extrabold text-blue-700">Create an account</button></form>}
 
                 {screen === SCREENS.FORGOT_PASSWORD && <form onSubmit={(event) => { event.preventDefault(); showNotice("Password-reset link requested in the prototype."); }}><div className="mb-7 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white"><KeyRound size={28} /></div><p className="mb-7 leading-7 text-slate-600">Enter the email connected to your account. The finished system will send a secure reset link.</p><FormField label="Email address" icon={Mail} type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="name@example.com" required /><div className="mt-6"><PrimaryButton text="Send reset link" icon={Send} /></div><button type="button" onClick={() => changeScreen(SCREENS.LOGIN)} className="mt-4 w-full rounded-2xl px-5 py-3 text-sm font-extrabold text-slate-600">Return to login</button></form>}
 
@@ -253,12 +203,11 @@ export default function AuthenticationPage({ initialScreen = SCREENS.CHOOSE_ROLE
 }
 
 // Both account types reuse the same registration structure with provider additions.
-function RegistrationForm({ type, values, setValues, score, showNotice, onSubmit, submitting = false, fieldErrors = {} }) {
+function RegistrationForm({ type, values, setValues, score, showNotice }) {
   const provider = type === "provider";
   return (
-    <form onSubmit={provider ? onSubmit : (event) => { event.preventDefault(); showNotice("Customer registration is not connected yet."); }}>
+    <form onSubmit={(event) => { event.preventDefault(); showNotice(provider ? "Provider account created. Professional application comes next." : "Customer registration submitted successfully."); }}>
       {provider && <div className="mb-6 rounded-2xl border border-violet-200 bg-violet-50/70 p-4 text-sm leading-6 text-violet-900"><strong>Approval required.</strong> Complete a profile and upload qualification evidence after account creation.</div>}
-      {Object.keys(fieldErrors).length > 0 && <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800">Please correct the highlighted registration information.</div>}
       <div className="grid gap-5 sm:grid-cols-2">
         <FormField label={provider ? "Your full name" : "Full name"} icon={CircleUserRound} value={values.name} onChange={(e) => setValues({ ...values, name: e.target.value })} placeholder="Enter your full name" required />
         {provider && <FormField label="Business or display name" icon={BriefcaseBusiness} value={values.business} onChange={(e) => setValues({ ...values, business: e.target.value })} placeholder="Example: Kalana TechCare" required />}
@@ -270,7 +219,7 @@ function RegistrationForm({ type, values, setValues, score, showNotice, onSubmit
         <div className="sm:col-span-2"><PasswordField label="Confirm password" value={values.confirmation} onChange={(e) => setValues({ ...values, confirmation: e.target.value })} placeholder="Enter the password again" /></div>
       </div>
       <TermsCheck checked={values.terms} onChange={(checked) => setValues({ ...values, terms: checked })} provider={provider} />
-      <PrimaryButton text={submitting ? "Creating account..." : provider ? "Create provider account" : "Create customer account"} icon={ArrowRight} disabled={submitting} />
+      <PrimaryButton text={provider ? "Create provider account" : "Create customer account"} icon={ArrowRight} />
     </form>
   );
 }
@@ -286,7 +235,7 @@ function TermsCheck({ checked, onChange, provider }) {
 }
 
 function PrimaryButton({ text, icon: Icon }) {
-  return <button type="submit" className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-700 to-cyan-500 px-5 py-4 text-sm font-extrabold text-white shadow-xl shadow-blue-600/20 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">{text}<Icon size={18} /></button>;
+  return <button type="submit" className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-700 to-cyan-500 px-5 py-4 text-sm font-extrabold text-white shadow-xl shadow-blue-600/20 transition hover:-translate-y-0.5">{text}<Icon size={18} /></button>;
 }
 
 function StatusCard({ status, onContinue }) {
