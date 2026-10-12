@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* Set the default page font and improve text rendering. */
+:root {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+/* Remove the browser's default page spacing. */
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+/* Allow the React application to occupy the complete browser width. */
+#root {
+    min-height: 100vh;
+}
