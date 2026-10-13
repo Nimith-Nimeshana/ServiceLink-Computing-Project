@@ -600,6 +600,21 @@ class ProviderComplaintController extends Controller
             $complaintPublicId
         );
 
+        // --- NOTIFICATION: Notify customer (complainant) that provider responded ---
+        try {
+            if ($complaint && isset($complaint->complainant_id)) {
+                \App\Helpers\NotificationHelper::create(
+                    $complaint->complainant_id,
+                    'complaint',
+                    'Provider responded to complaint',
+                    $provider->name . ' responded to your complaint ' . $complaintPublicId . ' (' . $complaint->subject . ').',
+                    'complaint',
+                    $complaintPublicId,
+                    '/customer/complaints/' . $complaintPublicId
+                );
+            }
+        } catch (\Exception $e) {}
+
         return $this->jsonResponse(
             true,
             $result['created']

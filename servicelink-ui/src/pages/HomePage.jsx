@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getStoredUser, getAuthToken, logoutUser, getCurrentUser } from "../api/authApi.js";
 import {
   ArrowRight,
   BadgeCheck,
@@ -85,6 +86,17 @@ export default function HomePage() {
   const [location, setLocation] = useState("Anuradhapura");
   const [notice, setNotice] = useState("");
   const [savedProviders, setSavedProviders] = useState([]);
+  const [authUser, setAuthUser] = useState(null);
+
+  // Load logged-in user for navbar (fixes profile icon not showing)
+  useEffect(() => {
+    const stored = getStoredUser();
+    if (stored) {
+      setAuthUser(stored);
+      // Optionally verify token still valid
+      getCurrentUser().then(r => setAuthUser(r.data.user)).catch(() => {});
+    }
+  }, []);
 
   // Filter sample categories while the visitor types in the hero search field.
   const matchingCategories = useMemo(() => {
@@ -172,7 +184,7 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      {/* The fixed frosted navbar connects the homepage to authentication routes. */}
+      {/* navbar connects the homepage to authentication routes. */}
       <header className="fixed left-0 right-0 top-0 z-50 px-4 pt-4 sm:px-6 lg:px-8">
         <nav className="mx-auto flex max-w-7xl items-center justify-between rounded-[1.6rem] border border-white/80 bg-white/72 px-4 py-3 shadow-[0_18px_50px_rgba(39,75,120,0.12)] backdrop-blur-2xl sm:px-6">
           <button
@@ -206,20 +218,53 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* These buttons open the approved login and account-selection pages. */}
+          {/* Auth-aware buttons: show profile/dashboard when logged in */}
           <div className="hidden items-center gap-2 lg:flex">
-            <button
-              onClick={() => navigateToPage("Login")}
-              className="rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white"
-            >
-              Log in
-            </button>
-            <button
-              onClick={() => navigateToPage("Register")}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
-            >
-              Create account
-            </button>
+            {authUser ? (
+              <>
+                <div className="flex items-center gap-3 rounded-xl bg-white/80 px-3 py-2 shadow-sm">
+                  <div className="grid h-8 w-8 place-items-center rounded-full bg-slate-950 text-xs font-black text-white">
+                    {authUser.name ? authUser.name.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-black leading-none">{authUser.name}</p>
+                    <p className="text-[10px] font-bold uppercase text-blue-600">{authUser.role}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (authUser.role === 'customer') navigate("/customer/dashboard");
+                    else if (authUser.role === 'provider') navigate("/provider/dashboard");
+                    else if (authUser.role === 'admin') navigate("/admin/dashboard");
+                    else navigate("/customer/dashboard");
+                  }}
+                  className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-slate-900"
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={async () => { try { await logoutUser(); } catch {} setAuthUser(null); navigate("/"); }}
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-white"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigateToPage("Login")}
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white"
+                >
+                  Log in
+                </button>
+                <button
+                  onClick={() => navigateToPage("Register")}
+                  className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
+                >
+                  Create account
+                </button>
+              </>
+            )}
           </div>
 
           <button
@@ -240,11 +285,23 @@ export default function HomePage() {
               exit={{ opacity: 0, y: -12 }}
               className="mx-auto mt-2 max-w-7xl rounded-[1.5rem] border border-white/80 bg-white/90 p-3 shadow-xl backdrop-blur-2xl lg:hidden"
             >
-              {["Home", "Services", "Providers", "Wanted Ads", "How It Works", "Log in", "Create account"].map(
+              {(authUser ? ["Home", "Services", "Providers", "Wanted Ads", "How It Works", `Dashboard (${authUser.role})`, "Logout"] : ["Home", "Services", "Providers", "Wanted Ads", "How It Works", "Log in", "Create account"]).map(
                 (item) => (
                   <button
                     key={item}
-                    onClick={() => handleMobileNavigation(item)}
+                    onClick={() => {
+                      if (item.startsWith("Dashboard")) {
+                        setMobileMenuOpen(false);
+                        if (authUser?.role === 'customer') navigate("/customer/dashboard");
+                        else if (authUser?.role === 'provider') navigate("/provider/dashboard");
+                        else navigate("/admin/dashboard");
+                      } else if (item === "Logout") {
+                        setMobileMenuOpen(false);
+                        logoutUser().then(() => { setAuthUser(null); navigate("/"); }).catch(() => { setAuthUser(null); navigate("/"); });
+                      } else {
+                        handleMobileNavigation(item);
+                      }
+                    }}
                     className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {item}

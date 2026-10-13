@@ -2,46 +2,46 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\SubmitProviderApplicationRequest;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Throwable;
+    use App\Http\Controllers\Controller;
+    use App\Http\Requests\SubmitProviderApplicationRequest;
+    use Illuminate\Http\JsonResponse;
+    use Illuminate\Support\Facades\DB;
+    use Throwable;
 
 class ProviderApplicationController extends Controller
 {
-private function jsonResponse(
-bool $success,
-string $message,
-mixed $data = null,
-mixed $errors = null,
-int $status = 200
-): JsonResponse {
-return response()->json([
-'success' => $success,
-'message' => $message,
-'data' => $data,
-'errors' => $errors,
-], $status);
+    private function jsonResponse(
+    bool $success,
+    string $message,
+    mixed $data = null,
+    mixed $errors = null,
+    int $status = 200
+    ): JsonResponse {
+    return response()->json([
+    'success' => $success,
+    'message' => $message,
+    'data' => $data,
+    'errors' => $errors,
+    ], $status);
 }
 
 public function submit(
-SubmitProviderApplicationRequest $request,
-string $providerPublicId
-): JsonResponse {
-$provider = DB::table('users')
-->where('public_id', $providerPublicId)
-->where('role', 'provider')
-->first();
+    SubmitProviderApplicationRequest $request,
+    string $providerPublicId
+    ): JsonResponse {
+    $provider = DB::table('users')
+    ->where('public_id', $providerPublicId)
+    ->where('role', 'provider')
+    ->first();
 
-if (!$provider) {
-return $this->jsonResponse(
-false,
-'Provider account not found.',
-null,
-null,
-404
-);
+    if (!$provider) {
+    return $this->jsonResponse(
+    false,
+    'Provider account not found.',
+    null,
+    null,
+    404
+    );
 }
 
 $application = DB::table('provider_applications')

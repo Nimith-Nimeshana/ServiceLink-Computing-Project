@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
+// Customer  imoport
+use App\Models\CustomerProfile;
+
 class AuthController extends Controller
 {
     private function jsonResponse(
@@ -180,6 +183,73 @@ class AuthController extends Controller
         }
 
         return '/provider/application/status';
+    }
+
+    public function registerCustomer(Request $request)
+    {
+        // 1. Validate the incoming data
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:150',
+            'email' => 'required|string|email|max:191|unique:users',
+            'phone' => 'nullable|string|max:30',
+            'password' => 'required|string|min:8|confirmed',
+            'district' => 'required|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Please correct the highlighted fields.',
+                'data' => null,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+        
+        try {
+            // 2. Use a transaction to ensure both tables save successfully
+            $user = DB::transaction(function () use ($request) {
+                
+                $user = User::create([
+                    'public_id' => 'US-' . random_int(1000, 9999),
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'password' => Hash::make($request->password),
+                    'role' => 'customer',
+                    'status' => 'active',
+                ]);
+
+                CustomerProfile::create([
+                    'user_id' => $user->id,
+                    'district' => $request->district,
+                ]);
+
+                return $user;
+            });
+
+            // 3. Generate a login token
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            // 4. Return the standardized success response
+            return response()->json([
+                'success' => true,
+                'message' => 'Customer account created successfully.',
+                'data' => [
+                    'user' => $user,
+                    'token' => $token,
+                    'destination' => '/registration-success?role=customer'
+                ],
+                'errors' => null
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An unexpected error occurred during registration.',
+                'data' => null,
+                'errors' => ['system' => [$e->getMessage()]]
+            ], 500);
+        }
     }
 
     public function registerProvider(

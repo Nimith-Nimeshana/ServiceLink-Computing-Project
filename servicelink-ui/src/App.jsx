@@ -1,10 +1,11 @@
-import React, { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import React, { lazy, Suspense, useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import HomePage from "./pages/HomePage.jsx";
 import AuthenticationPage from "./pages/AuthenticationPage.jsx";
 import CustomerPage from "./pages/CustomerPage.jsx";
 import ProviderApplicationPage from "./pages/ProviderApplicationPage.jsx";
+import { clearAuthSession, getAuthToken, getCurrentUser, updateStoredUser } from "./api/authApi.js";
 
 // Large modules load only when their routes are opened so one isolated module
 // cannot interrupt the homepage or another previously verified workspace.
@@ -29,7 +30,42 @@ function ModuleLoading({ label }) {
   );
 }
 
-function ProviderRoute({ screen }) {
+function ProviderRoute({ screen, requireApproval = true, application = false }) {
+  const location = useLocation();
+  const [state, setState] = useState({ loading: true, data: null });
+
+  useEffect(() => {
+    let active = true;
+    if (!getAuthToken()) {
+      setState({ loading: false, data: null });
+      return () => { active = false; };
+    }
+    getCurrentUser()
+      .then((result) => {
+        if (!active) return;
+        updateStoredUser(result.data.user);
+        setState({ loading: false, data: result.data });
+      })
+      .catch((error) => {
+        if (!active) return;
+        if (error.status === 401) clearAuthSession();
+        setState({ loading: false, data: null });
+      });
+    return () => { active = false; };
+  }, [location.pathname]);
+
+  if (state.loading) return <ModuleLoading label="secure provider access" />;
+  if (!getAuthToken() || !state.data?.user) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+  if (state.data.user.role !== "provider") return <Navigate to="/403" replace />;
+  if (requireApproval && !state.data.user.is_approved_provider) {
+    return <Navigate to={state.data.destination || "/provider/application/status"} replace />;
+  }
+  if (application && state.data.user.is_approved_provider) {
+    return <Navigate to="/provider/dashboard" replace />;
+  }
+  if (application) return <ProviderApplicationPage screen={screen} />;
   return <Suspense fallback={<ModuleLoading label="provider panel" />}><ProviderPage screen={screen} /></Suspense>;
 }
 
@@ -120,19 +156,24 @@ export default function App() {
         <Route path="/customer/offers" element={<CustomerPage screen="offers" />} />
         <Route path="/customer/offers/:id" element={<CustomerPage screen="offer-details" />} />
         <Route path="/customer/reviews" element={<CustomerPage screen="reviews" />} />
+
+        <Route path="/customer/bookings/:id/review" element={<CustomerPage screen="booking-review" />} />
+        
         <Route path="/customer/complaints" element={<CustomerPage screen="complaints" />} />
         <Route path="/customer/complaints/create" element={<CustomerPage screen="complaint-create" />} />
+        <Route path="/customer/complaints/:id" element={<CustomerPage screen="complaint-details" />} />
+        
         <Route path="/customer/notifications" element={<CustomerPage screen="notifications" />} />
 
         {/* Provider application. */}
-        <Route path="/provider/application" element={<ProviderApplicationPage screen="dashboard" />} />
-        <Route path="/provider/application/profile" element={<ProviderApplicationPage screen="profile" />} />
-        <Route path="/provider/application/qualifications" element={<ProviderApplicationPage screen="qualifications" />} />
-        <Route path="/provider/application/qualifications/create" element={<ProviderApplicationPage screen="qualification-form" />} />
-        <Route path="/provider/application/qualifications/:id/edit" element={<ProviderApplicationPage screen="qualification-form" />} />
-        <Route path="/provider/application/qualifications/:id" element={<ProviderApplicationPage screen="qualification-details" />} />
-        <Route path="/provider/application/review" element={<ProviderApplicationPage screen="review" />} />
-        <Route path="/provider/application/status" element={<ProviderApplicationPage screen="status" />} />
+        <Route path="/provider/application" element={<ProviderRoute screen="dashboard" requireApproval={false} application />} />
+        <Route path="/provider/application/profile" element={<ProviderRoute screen="profile" requireApproval={false} application />} />
+        <Route path="/provider/application/qualifications" element={<ProviderRoute screen="qualifications" requireApproval={false} application />} />
+        <Route path="/provider/application/qualifications/create" element={<ProviderRoute screen="qualification-form" requireApproval={false} application />} />
+        <Route path="/provider/application/qualifications/:id/edit" element={<ProviderRoute screen="qualification-form" requireApproval={false} application />} />
+        <Route path="/provider/application/qualifications/:id" element={<ProviderRoute screen="qualification-details" requireApproval={false} application />} />
+        <Route path="/provider/application/review" element={<ProviderRoute screen="review" requireApproval={false} application />} />
+        <Route path="/provider/application/status" element={<ProviderRoute screen="status" requireApproval={false} application />} />
 
         {/* Approved provider panel. */}
         <Route path="/provider/dashboard" element={<ProviderRoute screen="dashboard" />} />

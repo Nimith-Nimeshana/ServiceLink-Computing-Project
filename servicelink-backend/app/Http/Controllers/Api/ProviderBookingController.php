@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProviderBookingStatusRequest;
 use Illuminate\Http\JsonResponse;
+use App\Helpers\NotificationHelper;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -584,6 +585,28 @@ class ProviderBookingController extends Controller
             $provider->id,
             $bookingPublicId
         );
+
+        // NOTIFICATION: Notify customer about booking status change
+        try {
+            if ($booking && isset($booking->customer_id)) {
+                $statusMessages = [
+                    'accepted' => 'accepted your booking',
+                    'rejected' => 'rejected your booking',
+                    'in progress' => 'started work on your booking',
+                    'completed' => 'marked your booking as completed',
+                ];
+                $msg = $statusMessages[$rule['to']] ?? 'updated your booking status to ' . $rule['to'];
+                NotificationHelper::create(
+                    $booking->customer_id,
+                    'booking',
+                    'Booking ' . ucfirst($rule['to']),
+                    $provider->name . ' ' . $msg . ' (' . $bookingPublicId . ').',
+                    'booking',
+                    $bookingPublicId,
+                    '/customer/bookings/' . $bookingPublicId
+                );
+            }
+        } catch (\Exception $e) {}
 
         return $this->jsonResponse(
             true,

@@ -18,57 +18,33 @@ use App\Http\Controllers\Api\ProviderStatisticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\PublicProviderController;
 
-Route::prefix('public')->group(function () {
-    Route::get(
-        '/providers',
-        [
-            PublicProviderController::class,
-            'index',
-        ]
-    );
+use App\Http\Controllers\Api\CustomerDashboardController;
+use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\CustomerWantedAdController;
+use App\Http\Controllers\Api\CustomerBookingController;
+use App\Http\Controllers\Api\CustomerReviewController;
+use App\Http\Controllers\Api\CustomerComplaintController;
+use App\Http\Controllers\Api\CustomerNotificationController;
+use App\Http\Controllers\Api\PublicServiceController;
 
-    Route::get(
-        '/providers/{publicId}',
-        [
-            PublicProviderController::class,
-            'show',
-        ]
-    );
+Route::prefix('public')->group(function () {
+    Route::get('/providers', [PublicProviderController::class, 'index']);
+    Route::get('/providers/{publicId}', [PublicProviderController::class, 'show']);
+    Route::get('/services', [PublicServiceController::class, 'index']);
+    Route::get('/services/{publicId}', [PublicServiceController::class, 'show']);
+    Route::get('/wanted-ads', [PublicServiceController::class, 'wantedAds']);
+    Route::get('/wanted-ads/{publicId}', [PublicServiceController::class, 'showWantedAd']);
+    Route::get('/categories', [PublicServiceController::class, 'categories']);
 });
 
 Route::prefix('auth')->group(function () {
-    Route::post(
-        '/register/provider',
-        [
-            AuthController::class,
-            'registerProvider',
-        ]
-    );
-
-    Route::post(
-        '/login',
-        [
-            AuthController::class,
-            'login',
-        ]
-    );
+    Route::post('/register/provider', [AuthController::class, 'registerProvider']);
+    Route::post('/register/customer', [AuthController::class, 'registerCustomer']);
+    Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get(
-            '/me',
-            [
-                AuthController::class,
-                'me',
-            ]
-        );
-
-        Route::post(
-            '/logout',
-            [
-                AuthController::class,
-                'logout',
-            ]
-        );
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/logout', [AuthController::class, 'logout']);
     });
 });
 
@@ -76,240 +52,116 @@ Route::prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard']);
     Route::get('/applications', [AdminController::class, 'applications']);
     Route::post('/applications/{id}/decision', [AdminController::class, 'applicationDecision']);
-    
     Route::get('/users', [AdminController::class, 'users']);
     Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleUserStatus']);
-    
     Route::get('/categories', [AdminController::class, 'categories']);
     Route::post('/categories', [AdminController::class, 'storeCategory']);
     Route::post('/categories/{id}/toggle-status', [AdminController::class, 'toggleCategoryStatus']);
-    
     Route::get('/services', [AdminController::class, 'services']);
     Route::get('/wanted-ads', [AdminController::class, 'wantedAds']);
     Route::get('/bookings', [AdminController::class, 'bookings']);
     Route::get('/reviews', [AdminController::class, 'reviews']);
-    
     Route::get('/complaints', [AdminController::class, 'complaints']);
     Route::post('/complaints/{id}/resolve', [AdminController::class, 'resolveComplaint']);
-    
     Route::get('/revenue', [AdminController::class, 'revenue']);
     Route::get('/reports', [AdminController::class, 'reports']);
     Route::get('/audit-logs', [AdminController::class, 'auditLogs']);
-    
     Route::get('/settings', [AdminController::class, 'settings']);
     Route::post('/settings', [AdminController::class, 'updateSettings']);
-
-    
 });
 
-    Route::prefix('provider')->group(function () {
+Route::prefix('provider')->group(function () {
     Route::get('/profiles/{publicId}', [ProviderController::class, 'profile']);
+    Route::put('/profiles/{publicId}', [ProviderController::class, 'updateProfile']);
+    Route::get('/application/{publicId}', [ProviderController::class, 'application']);
+    Route::get('/application/{publicId}/qualifications', [ProviderController::class, 'qualifications']);
+    Route::post('/application/{publicId}/qualifications', [ProviderQualificationController::class, 'store']);
+    Route::post('/application/{publicId}/qualifications/{qualificationPublicId}/update', [ProviderQualificationController::class, 'update']);
+    Route::get('/application/{publicId}/qualifications/{qualificationPublicId}/preview', [ProviderQualificationController::class, 'preview']);
+    Route::get('/application/{publicId}/qualifications/{qualificationPublicId}/download', [ProviderQualificationController::class, 'download']);
+    Route::delete('/application/{publicId}/qualifications/{qualificationPublicId}', [ProviderQualificationController::class, 'destroy']);
+    Route::post('/application/{publicId}/submit', [ProviderApplicationController::class, 'submit']);
+    Route::get('/service-categories', [ProviderServiceController::class, 'categories']);
+    Route::get('/services/{publicId}', [ProviderServiceController::class, 'index']);
+    Route::post('/services/{publicId}', [ProviderServiceController::class, 'store']);
+    Route::get('/services/{publicId}/{servicePublicId}', [ProviderServiceController::class, 'show']);
+    Route::put('/services/{publicId}/{servicePublicId}', [ProviderServiceController::class, 'update']);
+    Route::post('/services/{publicId}/{servicePublicId}/toggle-status', [ProviderServiceController::class, 'toggleStatus']);
+    Route::get('/availability/{publicId}', [ProviderAvailabilityController::class, 'index']);
+    Route::post('/availability/{publicId}', [ProviderAvailabilityController::class, 'store']);
+    Route::delete('/availability/{publicId}/{slotPublicId}', [ProviderAvailabilityController::class, 'destroy']);
+    Route::get('/wanted-ads/{publicId}', [ProviderWantedAdController::class, 'index']);
+    Route::get('/wanted-ads/{publicId}/{wantedAdPublicId}', [ProviderWantedAdController::class, 'show']);
+    Route::get('/offers/{publicId}', [ProviderOfferController::class, 'index']);
+    Route::post('/wanted-ads/{publicId}/{wantedAdPublicId}/offers', [ProviderOfferController::class, 'store']);
+    Route::get('/offers/{publicId}/{offerPublicId}', [ProviderOfferController::class, 'show']);
+    Route::put('/offers/{publicId}/{offerPublicId}', [ProviderOfferController::class, 'update']);
+    Route::post('/offers/{publicId}/{offerPublicId}/withdraw', [ProviderOfferController::class, 'withdraw']);
+    Route::get('/bookings/{publicId}', [ProviderBookingController::class, 'index']);
+    Route::get('/bookings/{publicId}/requests', [ProviderBookingController::class, 'requests']);
+    Route::get('/bookings/{publicId}/{bookingPublicId}', [ProviderBookingController::class, 'show']);
+    Route::post('/bookings/{publicId}/{bookingPublicId}/status', [ProviderBookingController::class, 'updateStatus']);
+    Route::get('/earnings/{publicId}', [ProviderEarningController::class, 'index']);
+    Route::get('/reviews/{publicId}', [ProviderReviewController::class, 'index']);
+    Route::get('/complaints/{publicId}', [ProviderComplaintController::class, 'index']);
+    Route::get('/complaints/{publicId}/{complaintPublicId}', [ProviderComplaintController::class, 'show']);
+    Route::post('/complaints/{publicId}/{complaintPublicId}/response', [ProviderComplaintController::class, 'respond']);
+    Route::get('/notifications/{publicId}', [ProviderNotificationController::class, 'index']);
+    Route::post('/notifications/{publicId}/read-all', [ProviderNotificationController::class, 'markAllAsRead']);
+    Route::post('/notifications/{publicId}/{notificationPublicId}/read', [ProviderNotificationController::class, 'markAsRead']);
+    Route::get('/statistics/{publicId}', [ProviderStatisticsController::class, 'index']);
+});
 
-    Route::put(
+//customer Routes
+Route::prefix('customer')->middleware('auth:sanctum')->group(function () {
 
-'/profiles/{publicId}',
+    //DASHBOARD
+    Route::get('/dashboard/stats', [CustomerDashboardController::class, 'stats']);
 
-[ProviderController::class, 'updateProfile']
+    //Profile
+    Route::get('/profile', [CustomerController::class, 'getProfile']);
+    Route::put('/profile', [CustomerController::class, 'updateProfile']);
 
-);
+    //Get categories
+    Route::get('/categories', [CustomerWantedAdController::class, 'categories']);
 
-     Route::get(
-    '/application/{publicId}',
-    [ProviderController::class, 'application']
-);
+    //Wanted Ad
+    Route::get('/wanted-ads', [CustomerWantedAdController::class, 'index']);
+    Route::post('/wanted-ads', [CustomerWantedAdController::class, 'store']);
+    Route::get('/wanted-ads/{publicId}', [CustomerWantedAdController::class, 'show']);
+    Route::put('/wanted-ads/{publicId}', [CustomerWantedAdController::class, 'update']);
+    Route::delete('/wanted-ads/{publicId}', [CustomerWantedAdController::class, 'destroy']);
+    Route::get('/wanted-ads/{publicId}/offers', [CustomerWantedAdController::class, 'offers']);
+    Route::post('/wanted-ads/{publicId}/offers/{offerPublicId}/accept', [CustomerWantedAdController::class, 'acceptOffer']);
+    Route::post('/wanted-ads/{publicId}/offers/{offerPublicId}/decline', [CustomerWantedAdController::class, 'declineOffer']);
 
-    Route::get(
-    '/application/{publicId}/qualifications',
-    [ProviderController::class, 'qualifications']
-);
+    //Offers
+    Route::get('/offers', [CustomerWantedAdController::class, 'allOffers']);
+    Route::get('/offers/{offerPublicId}', [CustomerWantedAdController::class, 'showOffer']);
 
-Route::post(
-'/application/{publicId}/qualifications',
-[ProviderQualificationController::class, 'store']
-);
+    //bookings
+    Route::get('/bookings', [CustomerBookingController::class, 'index']);
+    Route::post('/bookings', [CustomerBookingController::class, 'store']);
+    Route::get('/bookings/stats', [CustomerBookingController::class, 'stats']);
+    Route::get('/bookings/{publicId}', [CustomerBookingController::class, 'show']);
+    Route::post('/bookings/{publicId}/cancel', [CustomerBookingController::class, 'cancel']);
+    Route::post('/bookings/{publicId}/complete', [CustomerBookingController::class, 'complete']);
 
-Route::post(
-'/application/{publicId}/qualifications/{qualificationPublicId}/update',
-[ProviderQualificationController::class, 'update']
-);
+    //REVIEWS
+    Route::get('/reviews', [CustomerReviewController::class, 'index']);
+    Route::get('/reviews/eligible', [CustomerReviewController::class, 'eligible']);
+    Route::get('/bookings/{publicId}/review-info', [CustomerReviewController::class, 'reviewInfo']);
+    Route::post('/bookings/{publicId}/reviews', [CustomerReviewController::class, 'store']);
 
-Route::get(
-'/application/{publicId}/qualifications/{qualificationPublicId}/preview',
-[ProviderQualificationController::class, 'preview']
-);
+    //COMPLAINTS
+    Route::get('/complaints', [CustomerComplaintController::class, 'index']);
+    Route::get('/complaints/eligible-bookings', [CustomerComplaintController::class, 'eligibleBookings']);
+    Route::get('/complaints/{publicId}', [CustomerComplaintController::class, 'show']);
+    Route::post('/complaints', [CustomerComplaintController::class, 'store']);
 
-Route::get(
-'/application/{publicId}/qualifications/{qualificationPublicId}/download',
-[ProviderQualificationController::class, 'download']
-);
-
-
-Route::delete(
-'/application/{publicId}/qualifications/{qualificationPublicId}',
-[
-ProviderQualificationController::class,
-'destroy',
-]
-);
-
-Route::post(
-'/application/{publicId}/submit',
-[ProviderApplicationController::class, 'submit']
-);
-
-Route::get(
-'/service-categories',
-[ProviderServiceController::class, 'categories']
-);
-
-Route::get(
-'/services/{publicId}',
-[ProviderServiceController::class, 'index']
-);
-
-Route::post(
-'/services/{publicId}',
-[ProviderServiceController::class, 'store']
-);
-
-Route::get(
-'/services/{publicId}/{servicePublicId}',
-[ProviderServiceController::class, 'show']
-);
-
-Route::put(
-'/services/{publicId}/{servicePublicId}',
-[ProviderServiceController::class, 'update']
-);
-
-Route::post(
-'/services/{publicId}/{servicePublicId}/toggle-status',
-[ProviderServiceController::class, 'toggleStatus']
-);
-
-Route::get(
-'/availability/{publicId}',
-[ProviderAvailabilityController::class, 'index']
-);
-
-Route::post(
-'/availability/{publicId}',
-[ProviderAvailabilityController::class, 'store']
-);
-
-Route::delete(
-'/availability/{publicId}/{slotPublicId}',
-[ProviderAvailabilityController::class, 'destroy']
-);
-
-Route::get(
-    '/wanted-ads/{publicId}',
-    [ProviderWantedAdController::class, 'index']
-);
-
-Route::get(
-    '/wanted-ads/{publicId}/{wantedAdPublicId}',
-    [ProviderWantedAdController::class, 'show']
-);
-
-Route::get(
-    '/offers/{publicId}',
-    [ProviderOfferController::class, 'index']
-);
-
-Route::post(
-    '/wanted-ads/{publicId}/{wantedAdPublicId}/offers',
-    [ProviderOfferController::class, 'store']
-);
-
-Route::get(
-    '/offers/{publicId}/{offerPublicId}',
-    [ProviderOfferController::class, 'show']
-);
-
-Route::put(
-    '/offers/{publicId}/{offerPublicId}',
-    [ProviderOfferController::class, 'update']
-);
-
-Route::post(
-    '/offers/{publicId}/{offerPublicId}/withdraw',
-    [ProviderOfferController::class, 'withdraw']
-);
-
-Route::get(
-    '/bookings/{publicId}',
-    [ProviderBookingController::class, 'index']
-);
-
-Route::get(
-    '/bookings/{publicId}/requests',
-    [ProviderBookingController::class, 'requests']
-);
-
-Route::get(
-    '/bookings/{publicId}/{bookingPublicId}',
-    [ProviderBookingController::class, 'show']
-);
-
-Route::post(
-    '/bookings/{publicId}/{bookingPublicId}/status',
-    [ProviderBookingController::class, 'updateStatus']
-);
-
-Route::get(
-    '/earnings/{publicId}',
-    [ProviderEarningController::class, 'index']
-);
-
-Route::get(
-    '/reviews/{publicId}',
-    [ProviderReviewController::class, 'index']
-);
-
-Route::get(
-    '/complaints/{publicId}',
-    [ProviderComplaintController::class, 'index']
-);
-
-Route::get(
-    '/complaints/{publicId}/{complaintPublicId}',
-    [ProviderComplaintController::class, 'show']
-);
-
-Route::post(
-    '/complaints/{publicId}/{complaintPublicId}/response',
-    [ProviderComplaintController::class, 'respond']
-);
-Route::get(
-    '/notifications/{publicId}',
-    [
-        ProviderNotificationController::class,
-        'index',
-    ]
-);
-
-Route::post(
-    '/notifications/{publicId}/read-all',
-    [
-        ProviderNotificationController::class,
-        'markAllAsRead',
-    ]
-);
-
-Route::post(
-    '/notifications/{publicId}/{notificationPublicId}/read',
-    [
-        ProviderNotificationController::class,
-        'markAsRead',
-    ]
-);
-
-Route::get(
-    '/statistics/{publicId}',
-    [
-        ProviderStatisticsController::class,
-        'index',
-    ]
-);
+    //NOTIFICATIONS
+    Route::get('/notifications', [CustomerNotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [CustomerNotificationController::class, 'markAllAsRead']);
+    Route::post('/notifications/{publicId}/read', [CustomerNotificationController::class, 'markAsRead']);
+    Route::get('/notifications/unread-count', [CustomerNotificationController::class, 'unreadCount']);
 });

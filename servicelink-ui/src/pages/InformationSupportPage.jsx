@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { getStoredUser, logoutUser } from "../api/authApi.js";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertCircle, ArrowRight, BadgeCheck, Bell, BookOpen, BriefcaseBusiness,
@@ -62,7 +63,9 @@ export default function InformationSupportPage({ screen = "how-it-works" }) {
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [notice, setNotice] = useState("");
+  useEffect(() => { try { const u = getStoredUser(); if (u) setCurrentUser(u); } catch {} }, []);
   const [contact, setContact] = useState({ name: "", email: "", category: "General question", reference: "", message: "" });
   const [openSection, setOpenSection] = useState(null);
 
@@ -87,10 +90,28 @@ export default function InformationSupportPage({ screen = "how-it-works" }) {
       <nav className="mx-auto flex max-w-7xl items-center justify-between rounded-[1.6rem] border border-white/80 bg-white/72 px-4 py-3 shadow-[0_18px_50px_rgba(39,75,120,0.12)] backdrop-blur-2xl sm:px-6">
         <button onClick={() => go("/")} className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 text-white shadow-lg shadow-blue-500/25"><Wrench size={20} strokeWidth={2.4} /></span><span className="text-xl font-black tracking-[-0.04em] text-slate-950">Service<span className="text-blue-600">Link</span></span></button>
         <div className="hidden items-center gap-1 lg:flex">{[["Home","/"],["Services","/services"],["Providers","/providers"],["Wanted Ads","/wanted-ads"],["How It Works","/how-it-works"]].map(([label,path]) => { const active = label === "How It Works" ? routeLocation.pathname === "/how-it-works" : routeLocation.pathname === path; return <button key={path} onClick={() => go(path)} className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${active ? "bg-slate-950 text-white shadow-lg" : "text-slate-600 hover:bg-white hover:text-slate-950"}`}>{label}</button>; })}</div>
-        <div className="hidden items-center gap-2 lg:flex"><button onClick={() => go("/login")} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white">Log in</button><button onClick={() => go("/register")} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Create account</button></div>
+        <div className="hidden items-center gap-2 lg:flex">
+          {currentUser ? (
+            <>
+              <button onClick={() => go(currentUser.role === 'provider' ? "/provider/dashboard" : currentUser.role === 'admin' ? "/admin" : "/customer/dashboard")} className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-bold text-white">Dashboard</button>
+              <button onClick={() => { try{ logoutUser(); }catch{} setCurrentUser(null); go("/"); }} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white">Logout</button>
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-950 text-sm font-black text-white">{currentUser.name ? currentUser.name.slice(0,2).toUpperCase() : "U"}</span>
+            </>
+          ) : (
+            <>
+              <button onClick={() => go("/login")} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white">Log in</button>
+              <button onClick={() => go("/register")} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Create account</button>
+            </>
+          )}
+        </div>
         <button onClick={() => setMobileOpen(!mobileOpen)} className="grid h-10 w-10 place-items-center rounded-xl bg-white text-slate-700 shadow-sm lg:hidden" aria-label="Toggle navigation">{mobileOpen ? <X size={20} /> : <Menu size={20} />}</button>
       </nav>
-      <AnimatePresence>{mobileOpen && <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="mx-auto mt-2 max-w-7xl rounded-[1.5rem] border border-white/80 bg-white/90 p-3 shadow-xl backdrop-blur-2xl lg:hidden">{[["Home","/"],["Services","/services"],["Providers","/providers"],["Wanted Ads","/wanted-ads"],["How It Works","/how-it-works"],["About","/about"],["Contact","/contact"],["Privacy","/privacy"],["Terms","/terms"],["Log in","/login"],["Create account","/register"]].map(([label,path]) => <button key={path} onClick={() => go(path)} className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700">{label}</button>)}</motion.div>}</AnimatePresence>
+      <AnimatePresence>{mobileOpen && <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} className="mx-auto mt-2 max-w-7xl rounded-[1.5rem] border border-white/80 bg-white/90 p-3 shadow-xl backdrop-blur-2xl lg:hidden">
+        {[
+          ["Home","/"],["Services","/services"],["Providers","/providers"],["Wanted Ads","/wanted-ads"],["How It Works","/how-it-works"],["About","/about"],["Contact","/contact"],["Privacy","/privacy"],["Terms","/terms"],
+          ...(currentUser ? [["Dashboard", currentUser.role==='provider' ? "/provider/dashboard" : currentUser.role==='admin' ? "/admin" : "/customer/dashboard"], ["Logout", "/logout"]] : [["Log in","/login"],["Create account","/register"]]),
+        ].map(([label,path]) => <button key={path+label} onClick={() => { if(label==="Logout"){ try{logoutUser();}catch{} setCurrentUser(null); go("/"); } else go(path); }} className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700">{label}</button>)}
+      </motion.div>}</AnimatePresence>
     </header>
 
     <main className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

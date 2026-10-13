@@ -1,6 +1,10 @@
 const API_BASE = "http://127.0.0.1:8000/api";
 const TOKEN_KEY = "servicelink_auth_token";
 const USER_KEY = "servicelink_auth_user";
+// Role-specific keys to allow same-laptop multi-login demo (customer in normal, provider in incognito, etc.)
+// Also helps when user switches roles, we keep previous tokens
+const ROLE_TOKEN_PREFIX = "servicelink_auth_token_";
+const ROLE_USER_PREFIX = "servicelink_auth_user_";
 
 async function authRequest(path, options = {}) {
   const token = getAuthToken();
@@ -54,6 +58,12 @@ export function saveAuthSession(data, remember = false) {
   const storage = remember ? localStorage : sessionStorage;
   storage.setItem(TOKEN_KEY, data.token);
   storage.setItem(USER_KEY, JSON.stringify(data.user));
+  // Also save role-specific copy for multi-role demo
+  try {
+    const role = data.user?.role || 'unknown';
+    localStorage.setItem(ROLE_TOKEN_PREFIX + role, data.token);
+    localStorage.setItem(ROLE_USER_PREFIX + role, JSON.stringify(data.user));
+  } catch {}
 }
 
 export function updateStoredUser(user) {
@@ -66,6 +76,25 @@ export function clearAuthSession() {
   localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  // Optionally clear role-specific keys too - for full logout
+  try {
+    ['customer','provider','admin'].forEach(role => {
+      localStorage.removeItem(ROLE_TOKEN_PREFIX + role);
+      localStorage.removeItem(ROLE_USER_PREFIX + role);
+    });
+  } catch {}
+}
+
+export function getAllStoredUsers() {
+  // For homepage: return all roles that have a token stored (useful for same-laptop demo explanation)
+  const users = [];
+  try {
+    ['customer','provider','admin'].forEach(role => {
+      const u = localStorage.getItem(ROLE_USER_PREFIX + role);
+      if (u) users.push(JSON.parse(u));
+    });
+  } catch {}
+  return users;
 }
 
 export function registerProvider(payload) {
@@ -92,4 +121,47 @@ export async function logoutUser() {
   } finally {
     clearAuthSession();
   }
+}
+
+export async function registerCustomer(data) {
+  const response = await fetch(`${API_BASE}/auth/register/customer`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  const result = await response.json();
+  if (!response.ok) {
+    throw result;
+  }
+  return result;
+}
+
+export async function getCustomerProfile() {
+  const response = await fetch(`${API_BASE}/customer/profile`, {
+    headers: {
+      "Accept": "application/json",
+      "Authorization": `Bearer ${getAuthToken()}`
+    }
+  });
+  if (!response.ok) throw await response.json();
+  return await response.json();
+}
+
+export async function updateCustomerProfile(data) {
+  const response = await fetch(`${API_BASE}/customer/profile`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Authorization": `Bearer ${getAuthToken()}`
+    },
+    body: JSON.stringify(data),
+  });
+  const result = await response.json();
+  if (!response.ok) throw result;
+  return result;
 }

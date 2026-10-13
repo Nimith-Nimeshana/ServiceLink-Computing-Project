@@ -7,6 +7,7 @@ use App\Http\Requests\StoreProviderOfferRequest;
 use App\Http\Requests\UpdateProviderOfferRequest;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
+use App\Helpers\NotificationHelper;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -369,6 +370,22 @@ class ProviderOfferController extends Controller
                 500
             );
         }
+
+        // NOTIFICATION: Notify customer about new offer
+        try {
+            $customer = DB::table('wanted_ads')->join('users', 'wanted_ads.customer_id', '=', 'users.id')->where('wanted_ads.id', $wantedAd->id)->select('users.id')->first();
+            if ($customer) {
+                NotificationHelper::create(
+                    $customer->id,
+                    'offer',
+                    'New offer received',
+                    $provider->name . ' submitted an offer for your wanted ad "' . $wantedAd->title . '" (' . $wantedAdPublicId . ').',
+                    'offer',
+                    $publicId,
+                    '/customer/offers/' . $publicId
+                );
+            }
+        } catch (\Exception $e) {}
 
         return $this->jsonResponse(
             true,
